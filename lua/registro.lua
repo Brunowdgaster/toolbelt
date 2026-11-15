@@ -117,6 +117,21 @@ return {
     },
 
     P13 = { nome = "legacy",        itens_no_plano = 9,  planejadas = 9,  feitas = {} },
-    P14 = { nome = "first-code",    itens_no_plano = 5,  planejadas = 5,  feitas = {} },
+    P14 = {
+      nome = "first-code",
+      itens_no_plano = 5,
+      planejadas = 5,
+      feitas = {
+        "Pascal",   -- licoes.pas: a referencia, com aviso tratado como erro
+        "Logo",     -- licoes.lg: openwrite/setwrite porque o build e so grafico
+        "Scratch",  -- gera.py + simula.py: .sb3 gerado E interpretado aqui
+        "Blockly",  -- blocos.js: dois geradores, um deles emite codigo forge
+      },
+      -- Falta SMALLTALK, e e a segunda ressalva declarada do portfolio junto
+      -- com o VBA do P12. Tentado: gnu-smalltalk nao existe mais no apt;
+      -- squeak-vm + etoys instalam e a VM sobe, mas a imagem do Etoys ignora
+      -- o .st; baixar Pharo (livre, MIT, roda headless) esta bloqueado pela
+      -- politica de rede da sessao.
+    },
   },
 }
