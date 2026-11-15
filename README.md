@@ -8,8 +8,8 @@ bash verifica.sh          # todas as ferramentas, nas duas direções
 bash verifica.sh perl     # só essa
 ```
 
-> **Status:** 5 das 10 linguagens previstas. Perl, AWK, Lua, Raku e Tcl/Expect
-> estão completas e verificadas, com **29 testes**. Groovy, Nix, PowerShell,
+> **Status:** 6 das 10 linguagens previstas. Perl, AWK, Lua, Raku, Tcl/Expect e
+> Nix estão completas e verificadas, com **33 testes**. Groovy, PowerShell,
 > AutoHotkey e VBA pendentes — ver [Roadmap](#roadmap).
 
 ## O princípio: nenhuma ferramenta é demonstração
@@ -24,6 +24,7 @@ delas corrigiram erros meus na primeira execução.
 | `lua/cobertura.lua` | Lua | planejado contra feito, com sobreposição | contei as linguagens à mão três vezes e **errei uma** |
 | `raku/gramatica_fasm.raku` | Raku | parser do assembly do P01, verificado contra o desmontador em C | o P01 tem 7 implementações da VM e **nenhum parser independente** do `.fasm` |
 | `tcl/dirige_repl.exp` | Tcl/Expect | dirigir um REPL e conferir a resposta | os portes de OCaml e Lua foram testados por linha de comando, que **não testa o REPL** |
+| `nix/flake.nix` | Nix | os ambientes dos projetos, declarados | montei 25 toolchains à mão, e **nada disso estava declarado em lugar nenhum** |
 
 ## `perl/lint_medicoes.pl` — o lint que a auditoria me fez falta
 
@@ -318,6 +319,170 @@ positivo: o teste passaria sem o REPL ter calculado nada. Ajustar o regex não
 resolve; a correção é tornar a **sonda** inequívoca (`SOMA=5`). Se a asserção
 pode casar com algo sem relação, ela não é asserção.
 
+## `nix/flake.nix` — o ambiente que só existia no histórico de comandos
+
+O plano chama isto de "o entregável que impressiona": um `nix develop` que
+levanta o ambiente dos projetos. A razão prática é mais chata e mais
+importante: **os ambientes foram montados à mão.**
+
+O `setup.sh` do P03 instala 14 ferramentas com `apt-get`, e eu instalei outras
+11 ao longo do portfólio — Nim, Odin, D, V, Ada, OCaml, .NET, Rakudo, Tcl,
+Groovy, Nix. Duas delas (**Odin e V**) não estão no apt e vieram de release do
+GitHub. Nada disso estava declarado em lugar nenhum: estava no histórico de
+comandos de uma máquina.
+
+```bash
+cd nix
+nix develop          # o mais leve (p12)
+nix develop .#p01    # as 7 implementações da VM
+nix develop .#p03    # erlang, elixir, gleam, go, rust, scala-cli, clojure, tofu
+```
+
+| shell | o que traz | download |
+|---|---|---|
+| `p01` | gcc, clang, cmake, rustc, nim, **odin**, ldc, **v**, gnat | 1,1 GiB |
+| `p02` | ghc, ocaml, dotnet-sdk_10 | 576 MiB |
+| `p03` | erlang, elixir, gleam, go, rustc, scala-cli, jdk, clojure, opentofu, docker, kind | 1,1 GiB |
+| `p12` | perl, gawk, lua, rakudo, tcl, expect, groovy, pwsh, ocaml | 694 MiB |
+
+**As 28 ferramentas do portfólio existem no nixpkgs**, inclusive as que não
+estão no apt do Ubuntu: `odin`, `vlang`, `gnat14`, `gleam`, `rakudo`, `groovy`,
+`powershell`, `opentofu`, `scala-cli`. Essa foi a surpresa agradável — eu
+esperava ter de empacotar duas ou três à mão.
+
+### A versão do nixpkgs foi escolhida por um motivo medido
+
+A primeira versão deste flake travava em `nixos-25.05`, e ele **não serve**:
+traz **Gleam 1.11**, enquanto o `manifest.toml` do P03 tem a stdlib travada
+numa versão que declara `gleam >= 1.14`.
+
+Com o 25.05, `nix develop .#p03` avalia, constrói, entra — e falha ao rodar
+`gleam test`, com o mesmo erro *"Incompatible Gleam version"* que já tinha
+derrubado o CI daquele projeto uma vez.
+
+**Um flake que levanta um ambiente onde o projeto não compila é pior que
+nenhum flake: ele promete e não entrega.** Trocado para `nixos-25.11`, que traz
+Gleam 1.16.
+
+E a mesma checagem achou outra lacuna: eu havia posto o pacote `scala`, mas o
+P03 compila com **`scala-cli`** e precisa de **JDK ≥ 21** porque o experimento
+usa `Thread.ofVirtual`. O `scala` do nixpkgs é o compilador, não a ferramenta
+que os scripts invocam — o shell avaliaria e não rodaria o projeto.
+
+### O que o flake NÃO promete
+
+**Não reproduz os números medidos**, e isso precisa estar dito.
+
+As medições do portfólio foram feitas com as versões do `apt` do Ubuntu 26.04;
+o nixpkgs travado tem outras:
+
+| | apt (medido com) | flake (nixos-25.11) |
+|---|---|---|
+| Erlang | 27 | 28.5.0.2 |
+| Gleam | 1.19.2 | 1.16.0 |
+| Go | 1.26.8 | 1.25.10 |
+| Rust | 1.93.1 | 1.91.1 |
+| OCaml | 5.4.0 | 5.3.0 |
+| Lua | 5.4.8 | 5.4.7 |
+
+Nix reproduz o **ambiente declarado**, com exatidão de hash. Mas *"o mesmo
+ambiente"* e *"as mesmas versões que eu usei"* são coisas diferentes, e
+confundir as duas seria prometer reprodutibilidade que não existe. Para
+reproduzir uma medição é preciso casar as versões, e é por isso que cada
+projeto registra as suas no README.
+
+O que o flake entrega é o que importa na prática: **qualquer pessoa compila e
+testa os projetos sem instalar nada à mão.**
+
+### Avaliar e construir são verificações diferentes
+
+Esta é a decisão de projeto do teste, e ela existe porque a alternativa era não
+ter teste nenhum.
+
+| | o que prova | custo |
+|---|---|---|
+| **avaliar** | todo nome de pacote existe; a expressão está correta | segundos, zero download |
+| **construir** | o shell de fato funciona | 576 MiB a 1,1 GiB **por shell** |
+
+A suíte avalia os quatro shells sempre, e constrói **um** só com
+`NIX_CONSTROI=1`. Sem essa separação, a escolha seria entre um teste de 4 GiB e
+nenhum teste.
+
+A avaliação não é cerimônia: ela resolve cada `devShell` até o nome da
+derivação, o que obriga **todo** nome de pacote a existir no nixpkgs travado.
+Um nome errado falha em segundos, em vez de na metade de um download de 1 GiB.
+
+E a construção, quando roda, faz a verificação mais forte que existe aqui:
+entra no shell declarado e **roda a suíte deste repositório dentro dele**.
+
+```
+  ambiente: p12-toolbelt (automação e higiene)
+  perl gawk lua rakudo tcl expect groovy pwsh ocaml
+
+perl 5.40.0
+Lua 5.4.8
+Built on MoarVM version 2025.06
+Groovy Version: 5.0.2 JVM: 21.0.10
+PowerShell 7.5.4
+
+  29 passaram, 0 falharam
+```
+
+### E o segundo ambiente achou o que o primeiro nunca acharia
+
+Na primeira vez, a suíte deu **28 de 29 dentro do shell** e 29 de 29 fora. O
+teste que falhava era o erro de tipo do OCaml no roteiro do Expect.
+
+A causa: o flake traz **OCaml 5.3**, o apt traz **5.4**, e as duas versões
+formatam a mesma mensagem de forma diferente:
+
+```
+5.3:  Error: The constructor "true" has type "bool"
+5.4:  Error: The constructor true has type bool
+```
+
+O 5.3 põe os tipos **entre aspas**. O padrão `has type bool` não casa com
+`has type "bool"`.
+
+E o detalhe que torna isso uma lição e não um acidente: **essa linha já havia
+sido corrigida uma vez.** A primeira versão casava `This expression has type
+bool`, redação de uma versão mais antiga que escrevi de memória; corrigi para
+`has type bool` justamente argumentando que era "o trecho estável". Não era.
+
+A terceira versão afirma o **conteúdo** em vez da redação — `Error:` seguido de
+`bool` em qualquer lugar da mensagem. É o que o teste de fato quer provar.
+
+**Essa é a razão prática de ter um ambiente declarado**, acima da
+reprodutibilidade: ele é um *segundo* ambiente, com versões diferentes, e um
+segundo ambiente encontra as suposições que o primeiro nunca questionaria. O
+flake pagou por si antes mesmo de ser publicado.
+
+### Três decisões, e duas armadilhas
+
+**Release, não `nixos-unstable`.** Um flake apontado para unstable muda de
+versão a cada `nix flake update` e deixa de responder "com o que isso foi
+construído". O `flake.lock` commitado é o que faz a declaração valer.
+
+**O `default` não é a união de tudo.** As 28 ferramentas juntas passariam de
+4 GiB, e quase ninguém precisa delas ao mesmo tempo. O padrão é o `p12`, o mais
+leve, e a mensagem de entrada diz como pedir os outros — em vez de castigar
+quem digitou `nix develop` sem argumento. A suíte testa isso, porque é o tipo
+de decisão que se perde numa refatoração.
+
+**Cada shell anuncia o que tem dentro.** Um shell que não diz o que trouxe
+obriga quem entrou a adivinhar, e `nix develop` não tem `--list`.
+
+**Armadilha 1: um flake num repositório git só vê arquivos rastreados.**
+`nix flake show` falhou com *"Path 'nix/flake.nix' ... is not tracked by Git"*
+até o `git add`. É o primeiro tropeço de todo mundo com flakes.
+
+**Armadilha 2: `nix eval nixpkgs#foo` usa o REGISTRY, não o seu flake.** Eu
+levantei a tabela de versões com `nix eval --raw nixpkgs#ghc.name` e publiquei
+GHC 9.10.3 — mas o flake travado entrega **9.8.4**. O `nixpkgs#` resolve pelo
+registry local, que aponta para outro commit. A consulta certa é pelo próprio
+flake (`nix eval .#devShells...nativeBuildInputs`), e a tabela acima foi
+refeita assim.
+
 ## A suíte: 29 testes, nas duas direções
 
 Cada ferramenta é testada **nas duas direções**: tem de achar o que deve achar
@@ -363,7 +528,6 @@ canalizar**.
 | linguagem | ferramenta prevista | terreno |
 |---|---|---|
 | **Groovy** | pipeline declarativo | Jenkins e Gradle de verdade |
-| **Nix** | `nix develop` com o ambiente dos 14 projetos | o entregável que o plano chama de impressionante |
 | **PowerShell** | o par POSIX↔Windows do mesmo trabalho | duas culturas, um problema |
 | **AutoHotkey** | automação de desktop | desprezado e extremamente empregável |
 | **VBA** | automação de planilha | idem — com a ressalva de exigir Office |

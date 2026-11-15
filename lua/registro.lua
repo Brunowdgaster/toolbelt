@@ -88,6 +88,7 @@ return {
         "Lua",  -- cobertura.lua: esta propria conta
         "Raku", -- gramatica_fasm.raku: 9/9 contra o desmontador em C
         "Tcl",  -- dirige_repl.exp: 12 interacoes com REPL de verdade
+        "Nix",  -- flake.nix: 4 devShells, versao escolhida por motivo medido
       },
     },
 

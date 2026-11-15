@@ -142,16 +142,30 @@ proc dirige_ocaml {} {
 
     # 4. O REPL REJEITA o que nao tipa, e a mensagem diz o tipo esperado.
     #
-    # O padrao e `has type bool`, e nao a frase inteira: o OCaml 5.4 diz
-    # "The constructor true has type bool", enquanto versoes anteriores diziam
-    # "This expression has type bool". Minha primeira versao casava a frase
-    # antiga, de memoria, e falhava por timeout -- parecendo que o REPL nao
-    # respondeu quando ele tinha respondido perfeitamente.
+    # O padrao afirma o CONTEUDO (houve erro, e ele menciona bool), e nao a
+    # redacao. Esta linha foi corrigida DUAS vezes, e a segunda correcao ainda
+    # nao era robusta:
     #
-    # Casar o trecho ESTAVEL da mensagem, e nao a redacao inteira, e a
-    # diferenca entre um teste que sobrevive a atualizacao do compilador e um
-    # que nao.
-    interage "1 + true e erro de tipo" "1 + true;;" {has type bool}
+    #   1a versao: {This expression has type bool}
+    #              -- redacao de uma versao antiga, escrita de memoria. O
+    #                 OCaml 5.4 diz "The constructor true has type bool", e o
+    #                 teste falhava por timeout, parecendo que o REPL nao
+    #                 respondeu quando ele respondeu perfeitamente.
+    #
+    #   2a versao: {has type bool}
+    #              -- parecia o trecho estavel. Mas o OCaml 5.3 poe os tipos
+    #                 ENTRE ASPAS: `has type "bool"`. Quem achou isso foi o
+    #                 ambiente do Nix (nix/flake.nix), que traz o 5.3 em vez do
+    #                 5.4 do apt -- um segundo ambiente encontra as suposicoes
+    #                 que o primeiro nunca questionaria.
+    #
+    #   3a versao: a de baixo. `Error:` seguido de `bool` em qualquer lugar.
+    #              Em regex de Tcl, `.` casa quebra de linha por padrao, entao
+    #              isso atravessa a mensagem de duas linhas.
+    #
+    # A licao: casar a REDACAO de uma mensagem de erro e fragil mesmo quando
+    # parece estavel. Afirme o que o teste de fato quer provar.
+    interage "1 + true e erro de tipo" "1 + true;;" {Error:.*bool}
 
     # 5. E continua VIVO depois do erro -- um REPL que morre no primeiro erro
     #    seria inutil, e este teste prova que ele nao morre.

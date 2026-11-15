@@ -36,7 +36,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")"
 
-FERRAMENTAS=(perl awk lua raku tcl)
+FERRAMENTAS=(perl awk lua raku tcl nix)
 [ $# -gt 0 ] && FERRAMENTAS=("$@")
 
 passou=0
@@ -348,6 +348,78 @@ if [[ " ${FERRAMENTAS[*]} " == *" tcl "* ]]; then
       bad "alguma interação falhou" "$(grep -E 'FALHA' "$saida" | head -4)"
     fi
     rm -f "$saida"
+  fi
+fi
+
+# -------------------------------------------------------------------- nix
+if [[ " ${FERRAMENTAS[*]} " == *" nix "* ]]; then
+  echo
+  echo "nix/flake.nix — os ambientes dos projetos, declarados"
+  echo
+
+  if ! command -v nix >/dev/null; then
+    bad "nix ausente" "sudo apt-get install nix-bin"
+  else
+    NIX="nix --extra-experimental-features nix-command --extra-experimental-features flakes"
+
+    # AVALIAR e CONSTRUIR são verificações diferentes, e só uma cabe aqui.
+    #
+    # Avaliar prova que todo nome de pacote existe e que a expressão está
+    # correta: segundos, nenhum download. Construir baixa de 575 MiB a 1,1 GiB
+    # por shell, o que não cabe num teste de rotina.
+    #
+    # Então: avalia os quatro, e constrói UM (o mais leve dos reais) só com
+    # NIX_CONSTROI=1. Sem essa separação, a escolha seria entre um teste de
+    # 4 GiB e nenhum teste.
+    if ! (cd nix && $NIX flake metadata >/dev/null 2>&1); then
+      bad "o flake não avalia" "$(cd nix && $NIX flake metadata 2>&1 | tail -3)"
+    else
+      ok "o flake avalia (nixpkgs travado no flake.lock)"
+
+      # O lock tem de existir: um flake sem lock resolve para o que estiver no
+      # canal HOJE, e deixa de responder "com o que isso foi construído".
+      if [ -f nix/flake.lock ]; then
+        ok "flake.lock existe (a versão do nixpkgs está travada)"
+      else
+        bad "flake.lock não existe" "rode: cd nix && nix flake lock"
+      fi
+
+      # Cada shell é avaliado até o nome da derivação, o que prova que TODO
+      # nome de pacote existe no nixpkgs travado. Um nome errado falha aqui,
+      # em segundos, em vez de na metade de um download de 1 GiB.
+      faltou=""
+      for sh in p01 p02 p03 p12; do
+        if ! (cd nix && $NIX eval --raw ".#devShells.x86_64-linux.$sh.name" \
+              >/dev/null 2>&1); then
+          faltou="$faltou $sh"
+        fi
+      done
+
+      if [ -z "$faltou" ]; then
+        ok "os 4 shells resolvem (p01, p02, p03, p12)"
+      else
+        bad "shells que não resolvem:$faltou"
+      fi
+
+      # O `default` aponta para um shell real, e não para a união de tudo: 28
+      # ferramentas juntas passariam de 4 GiB e quase ninguém precisa delas ao
+      # mesmo tempo.
+      nome_default=$(cd nix && $NIX eval --raw \
+        ".#devShells.x86_64-linux.default.name" 2>/dev/null)
+      igual "default é o shell mais leve" "p12-toolbelt" "$nome_default"
+
+      # A construção de verdade, sob demanda.
+      if [ "${NIX_CONSTROI:-}" = "1" ]; then
+        if (cd nix && timeout 3000 $NIX develop ".#p02" \
+              --command ocaml -version >/dev/null 2>&1); then
+          ok "nix develop .#p02 constrói e entrega o ocaml"
+        else
+          bad "nix develop .#p02 não funcionou"
+        fi
+      else
+        echo "        (construção não testada; use NIX_CONSTROI=1 — baixa ~575 MiB)"
+      fi
+    fi
   fi
 fi
 
