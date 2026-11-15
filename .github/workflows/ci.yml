@@ -67,20 +67,33 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: AutoHotkey v2 (zip portatil, GPL)
+      # Do GITHUB RELEASES, e nao de autohotkey.com.
+      #
+      # O site oficial esta atras de um desafio do Cloudflare para IP de
+      # datacenter: o download funciona de uma maquina residencial e no
+      # runner devolve a PAGINA DO DESAFIO como se fosse o zip. O sintoma e
+      # cruel -- Invoke-WebRequest nao falha, o Expand-Archive estoura, e o
+      # log traz HTML e JavaScript de verificacao em vez de um erro.
+      #
+      # A versao e FIXA, e nao 'latest', pelo mesmo argumento do nixpkgs
+      # travado: 2.0.31 e exatamente a verificada localmente.
+      - name: AutoHotkey v2.0.31 (release do GitHub, GPL)
         shell: pwsh
         run: |
           $dest = Join-Path $env:LOCALAPPDATA 'ahk2'
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           $zip = Join-Path $dest 'ahk2.zip'
-          Invoke-WebRequest -Uri 'https://www.autohotkey.com/download/ahk-v2.zip' -OutFile $zip -UseBasicParsing
+          $url = 'https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.31/AutoHotkey_2.0.31.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
           Expand-Archive -Path $zip -DestinationPath $dest -Force
           $exe = Join-Path $dest 'AutoHotkey64.exe'
           # Falha ALTO se o binario nao apareceu. Sem isto, o verifica.ps1
           # reportaria 'AutoHotkey nao encontrado' como falha de TESTE, e a
           # causa real (download quebrado) ficaria escondida atras dela.
           if (-not (Test-Path $exe)) { throw 'AutoHotkey64.exe nao foi extraido' }
-          & $exe --version
+          # O /ErrorStdOut e obrigatorio em TODA invocacao: sem ele, erro de
+          # sintaxe abre caixa de dialogo e o job pendura ate o timeout.
+          & $exe /ErrorStdOut --version
 
       - name: a metade Windows da suite
         shell: pwsh
