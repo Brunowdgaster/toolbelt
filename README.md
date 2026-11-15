@@ -8,10 +8,9 @@ bash verifica.sh          # todas as ferramentas, nas duas direções
 bash verifica.sh perl     # só essa
 ```
 
-> **Status:** 9 das 10 linguagens previstas. Perl, AWK, Lua, Raku, Tcl/Expect,
-> Nix, Groovy, PowerShell e Bash estão completas e verificadas, com **42
-> testes**. Falta AutoHotkey — e o VBA tem uma ressalva, ver
-> [Roadmap](#roadmap).
+> **Status:** 10 das 10 linguagens previstas estão feitas, com **51 testes**
+> (42 POSIX + 9 Windows). O **VBA é o primeiro item genuinamente bloqueado** do
+> portfólio, e o motivo está em [Roadmap](#roadmap).
 
 ## O princípio: nenhuma ferramenta é demonstração
 
@@ -28,6 +27,7 @@ delas corrigiram erros meus na primeira execução.
 | `nix/flake.nix` | Nix | os ambientes dos projetos, declarados | montei 25 toolchains à mão, e **nada disso estava declarado em lugar nenhum** |
 | `groovy/relatorio.groovy` | Groovy | a saída dos verificadores em JUnit XML | 61 verificações do portfólio são **texto**, e nenhum painel de CI sabe lê-las |
 | `pwsh/Audita-Repos.ps1` + `bash/audita-repos.sh` | PowerShell + Bash | cada repositório tem o mínimo? | os 5 repositórios **divergiram**, e a auditoria à mão é impossível de manter |
+| `ahk/Verifica-Ambiente.ahk` | AutoHotkey | o que no desktop do Windows contamina a medição | o `calibra.sh` do P03 detecta o **efeito** e não pode dizer a **causa** |
 
 ## `perl/lint_medicoes.pl` — o lint que a auditoria me fez falta
 
@@ -613,6 +613,124 @@ esqueci o índice.
 
 Número publicado sem dispersão ao lado é número que ninguém revisita.
 
+## `ahk/Verifica-Ambiente.ahk` — a outra metade do calibrador
+
+Uma medição do p03-otp-mesh foi publicada e depois corrigida porque havia **um
+jogo e um navegador com vídeo** abertos enquanto ela rodava. O
+`bench/calibra.sh` daquele projeto nasceu disso: ele mede um laço fixo e detecta
+que a máquina está ocupada.
+
+Mas o `calibra.sh` roda dentro do WSL2, e lá ele detecta o **efeito** sem poder
+dizer a **causa** — processos do Windows não aparecem no `/proc` do Linux. Foi
+medido naquele projeto: com 4 núcleos do Windows ocupados, o laço inflou 74% e o
+`loadavg` do WSL2 mal se moveu.
+
+Esta ferramenta é a outra metade. Ela olha o desktop do Windows e **nomeia** o
+que está consumindo CPU, com processo e título de janela:
+
+```
+Processos acima de 3.0% de CPU no desktop do Windows:
+(instantaneo: o contador do WMI e por amostra, nao media)
+
+    WindowsTerminal.exe        5.0%  outro       -- ◐ Projetos de domínio de linguagens
+  ! WmiPrvSE.exe              10.0%  sistema
+  ! chrome.exe                15.0%  navegador   -- (573) Hércules HD | Destripando la Histo
+  ! chrome.exe               103.0%  navegador
+
+4 processo(s) marcado(s) com ! vao contaminar qualquer medicao de tempo.
+```
+
+A primeira execução pegou **`chrome.exe` a 103% de CPU**, com o título da
+janela mostrando um vídeo. É literalmente o cenário que contaminou a medição do
+P03 — e agora ele é nomeado, não suposto.
+
+### Por que em AutoHotkey
+
+Porque o problema é **acesso ao desktop do Windows**: `WinGetList` com
+`DetectHiddenWindows false` dá as janelas que o usuário de fato vê, e o título
+é o que distingue "navegador tocando vídeo" de "navegador parado numa aba de
+texto". Tudo builtin, zero dependência.
+
+O mesmo em PowerShell precisaria de `Get-Process` mais P/Invoke para os
+títulos; em Python, de `pywin32`.
+
+AHK é desprezado por ser "linguagem de macro", e esta é a ferramenta que mostra
+por que isso é injusto: 200 linhas, nenhuma dependência, e faz uma coisa que as
+alternativas fazem com mais cerimônia.
+
+### O que a torna testável
+
+AHK v2 escreve em stdout com `FileAppend(texto, "*", "UTF-8-RAW")`, então a
+saída é comparável como a de qualquer script. E `--autoteste` exercita as
+funções puras — classificação de processo, veredito, escape de JSON — com
+entradas fixas, **sem depender do que estiver aberto na máquina**:
+
+```
+  ok    chrome.exe e navegador
+  ok    sistema contamina (indexador rouba CPU igual)
+  ok    outro NAO contamina
+  ok    escapa barra antes do resto
+  12 passaram, 0 falharam
+```
+
+A separação entre funções puras e acesso ao sistema é o que permite isso: o
+desktop é inerentemente irreprodutível, e o que se pode testar de rotina é a
+lógica.
+
+### Duas janelas na tela do usuário, e o que elas ensinaram
+
+O AutoHotkey reporta erro por **caixa de diálogo**, e o processo fica parado
+esperando alguém fechar. Em automação isso é fatal: o script pendura e nada no
+log diz por quê. Aconteceu **duas vezes** durante o desenvolvimento — na tela
+de quem estava acompanhando:
+
+**1. `/validate` sem `/ErrorStdOut`.** O erro de sintaxe abriu janela em vez de
+escrever em stderr. Com `/ErrorStdOut`, o mesmo erro vai para stdout e o
+processo sai com 2.
+
+**2. Caminho POSIX para um programa Windows.** Invoquei
+`AutoHotkey64.exe ./ahk/Verifica-Ambiente.ahk` do Git Bash, o AHK não achou o
+arquivo, e abriu "script not found" — e **`/ErrorStdOut` não cobre esse**,
+porque é erro de *launcher*, antes de o script ser lido.
+
+Por isso o `verifica.ps1` **confere que o arquivo existe antes de invocar o
+AHK**, e sempre com caminho absoluto do Windows. A verificação não é
+paranoia: é a única forma de o harness nunca entregar caminho ruim ao AHK.
+
+## A metade Windows da suíte, e por que ela é separada
+
+`verifica.sh` roda em bash e cobre as ferramentas POSIX. `verifica.ps1` cobre
+as duas que são **do mundo Windows** — e fingir que bash as testa seria pior
+que declarar a separação.
+
+É a mesma divisão do par POSIX↔Windows que o projeto já tem: duas culturas,
+cada uma verificada na sua. No CI são dois jobs, um em `ubuntu-latest` e um em
+`windows-latest`.
+
+### Duas incompatibilidades reais com o Windows PowerShell 5.1
+
+O par expôs duas fricções que só aparecem na versão antiga, que é a que vem
+instalada no Windows:
+
+**`Join-Path a b c` é só PowerShell 7+.** A forma de três argumentos
+(`-AdditionalChildPath`) falha no 5.1 com `PositionalParameterNotFound` — e
+falha na avaliação do **valor padrão** de um parâmetro, então só aparece quando
+o parâmetro *não* é passado. A correção é `Join-Path` aninhado.
+
+**O 5.1 lê script UTF-8 sem BOM como ANSI.** Os acentos saíam como `â€”` e
+`mediÃ§Ã£o`. Os `.ps1` deste repositório são gravados **com BOM**, que é o que
+o 5.1 exige.
+
+E o contraste que isso cria é o detalhe favorito desta seção:
+
+| arquivo | BOM |
+|---|---|
+| `.ps1` | **obrigatório** — sem ele o PowerShell 5.1 lê como ANSI |
+| JSON do AHK | **proibido** — com ele o JSON é inválido para parser estrito |
+
+A mesma sequência de três bytes é exigida num lugar e proibida no outro, e as
+duas coisas são testadas.
+
 ## A suíte: 42 testes, nas duas direções
 
 Cada ferramenta é testada **nas duas direções**: tem de achar o que deve achar
@@ -658,5 +776,22 @@ canalizar**.
 
 | linguagem | ferramenta prevista | terreno |
 |---|---|---|
-| **AutoHotkey** | automação de desktop | desprezado e extremamente empregável; é Windows, e dá para verificar a sintaxe |
-| **VBA** | automação de planilha | **ressalva honesta:** exige Office instalado, e eu não verifiquei que existe nesta máquina |
+| **VBA** | automação de planilha | **o primeiro item genuinamente bloqueado do portfólio** — ver abaixo |
+
+### VBA: o primeiro bloqueio real
+
+Verificado nesta máquina: **não há Office nem LibreOffice instalado**, e
+`Excel.Application`/`Word.Application` não estão registrados.
+
+VBA exige Microsoft Office, que é **pago** — e a regra declarada do portfólio é
+*nenhum recurso pago*. Então VBA, como VBA, está bloqueado, e isso é um
+resultado: é o único item de 139 do plano que a restrição de custo barra.
+
+O caminho livre é **LibreOffice Basic** com `Option VBASupport 1`, que cobre a
+maior parte do mesmo terreno e roda *headless* (`soffice --headless
+"macro:///..."`), o que o torna testável. Mas é um **dialeto diferente**, e
+chamá-lo de VBA seria a mesma desonestidade que chamar o flake de "reproduz os
+números medidos".
+
+A decisão fica declarada aqui em vez de escondida: o que couber em LibreOffice
+Basic será feito e **rotulado como LibreOffice Basic**.

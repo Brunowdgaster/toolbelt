@@ -53,6 +53,39 @@ jobs:
         # declarado -- e e la que foi verificada que as duas concordam.
         run: bash verifica.sh perl awk lua raku tcl groovy
 
+  # As ferramentas do mundo WINDOWS num runner Windows.
+  #
+  # AutoHotkey so existe no Windows, e o que a ferramenta faz -- ler a lista
+  # de janelas visiveis do desktop -- nao tem equivalente num runner Linux.
+  # Fingir que o bash testa isso seria pior que declarar a separacao.
+  #
+  # O verifica.ps1 e a metade Windows da suite; o verifica.sh (POSIX) ja
+  # compara as duas implementacoes do auditor de repositorios entre si.
+  windows:
+    runs-on: windows-latest
+    name: ferramentas Windows (AutoHotkey, PowerShell)
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: AutoHotkey v2 (zip portatil, GPL)
+        shell: pwsh
+        run: |
+          $dest = Join-Path $env:LOCALAPPDATA 'ahk2'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $zip = Join-Path $dest 'ahk2.zip'
+          Invoke-WebRequest -Uri 'https://www.autohotkey.com/download/ahk-v2.zip' -OutFile $zip -UseBasicParsing
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          $exe = Join-Path $dest 'AutoHotkey64.exe'
+          # Falha ALTO se o binario nao apareceu. Sem isto, o verifica.ps1
+          # reportaria 'AutoHotkey nao encontrado' como falha de TESTE, e a
+          # causa real (download quebrado) ficaria escondida atras dela.
+          if (-not (Test-Path $exe)) { throw 'AutoHotkey64.exe nao foi extraido' }
+          & $exe --version
+
+      - name: a metade Windows da suite
+        shell: pwsh
+        run: ./verifica.ps1
+
   # O Nix num job proprio: ele precisa de instalacao dedicada (nao esta na
   # imagem do runner) e as verificacoes dele nao dependem do p01.
   #

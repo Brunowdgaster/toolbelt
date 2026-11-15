@@ -7,3 +7,7 @@ result-*
 # Nix
 nix/result
 nix/result-*
+
+# AutoHotkey portatil, se extraido aqui
+ahk/AutoHotkey*.exe
+ahk/*.zip

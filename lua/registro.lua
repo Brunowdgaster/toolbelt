@@ -81,6 +81,11 @@ return {
     P12 = {
       nome = "toolbelt",
       itens_no_plano = 15,  -- inclui Makefile, Nix, Dockerfile, YAML, HCL
+      -- 10 linguagens previstas, e o VBA e o PRIMEIRO BLOQUEIO REAL do
+      -- portfolio: exige Office, que e pago, e a regra declarada e "nenhum
+      -- recurso pago". Verificado nesta maquina: nao ha Office nem
+      -- LibreOffice. O caminho livre e LibreOffice Basic, que e OUTRO
+      -- DIALETO -- sera feito e rotulado como tal, nao como VBA.
       planejadas = 10,
       feitas = {
         "Perl", -- lint_medicoes.pl: numero publicado sem dispersao ao lado
@@ -92,6 +97,7 @@ return {
         "Groovy", -- relatorio.groovy: saida dos verificadores em JUnit XML
         "PowerShell", -- Audita-Repos.ps1, com par em bash: as duas concordam
         "Bash", -- bash/audita-repos.sh: o par POSIX do PowerShell
+        "AutoHotkey", -- Verifica-Ambiente.ahk: nomeia a causa que o calibra.sh so sente
       },
     },
 

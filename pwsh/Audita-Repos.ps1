@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 #
 # Audita-Repos.ps1 — cada repositório do portfólio tem o mínimo?
 #
@@ -43,7 +43,15 @@
 param(
     # A raiz onde os repositórios moram. O padrão é o diretório acima deste,
     # que é onde o portfólio fica.
-    [string] $Raiz = (Join-Path $PSScriptRoot '..' '..'),
+    #
+    # `Join-Path` ANINHADO, e não `Join-Path a b c`: a forma de três argumentos
+    # (`-AdditionalChildPath`) só existe no PowerShell 7+, e no Windows
+    # PowerShell 5.1 ela falha com "PositionalParameterNotFound" -- e falha na
+    # avaliação do PADRÃO, então só aparece quando o parâmetro NÃO é passado.
+    #
+    # É a primeira das duas fricções que este par expôs entre as versões, e
+    # ambas estão documentadas no README.
+    [string] $Raiz = (Join-Path (Join-Path $PSScriptRoot '..') '..'),
 
     # Saída em JSON, para consumo por outra ferramenta.
     [switch] $Json,
