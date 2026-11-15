@@ -8,9 +8,9 @@ bash verifica.sh          # todas as ferramentas, nas duas direções
 bash verifica.sh perl     # só essa
 ```
 
-> **Status:** 10 das 10 linguagens previstas estão feitas, com **51 testes**
-> (42 POSIX + 9 Windows). O **VBA é o primeiro item genuinamente bloqueado** do
-> portfólio, e o motivo está em [Roadmap](#roadmap).
+> **Status:** 11 linguagens, com **49 testes** POSIX + 9 Windows. O VBA foi
+> **substituído por LibreOffice Basic** (livre), declarado como dialeto
+> diferente — ver [LibreOffice Basic](#basiccoberturabas--a-planilha-que-confere-a-propria-conta).
 
 ## O princípio: nenhuma ferramenta é demonstração
 
@@ -28,6 +28,7 @@ delas corrigiram erros meus na primeira execução.
 | `groovy/relatorio.groovy` | Groovy | a saída dos verificadores em JUnit XML | 61 verificações do portfólio são **texto**, e nenhum painel de CI sabe lê-las |
 | `pwsh/Audita-Repos.ps1` + `bash/audita-repos.sh` | PowerShell + Bash | cada repositório tem o mínimo? | os 5 repositórios **divergiram**, e a auditoria à mão é impossível de manter |
 | `ahk/Verifica-Ambiente.ahk` | AutoHotkey | o que no desktop do Windows contamina a medição | o `calibra.sh` do P03 detecta o **efeito** e não pode dizer a **causa** |
+| `basic/Cobertura.bas` | LibreOffice Basic | a cobertura como planilha **auditável** | o número que importa não é a soma das colunas, e numa planilha a fórmula fica à vista |
 
 ## `perl/lint_medicoes.pl` — o lint que a auditoria me fez falta
 
@@ -697,6 +698,71 @@ Por isso o `verifica.ps1` **confere que o arquivo existe antes de invocar o
 AHK**, e sempre com caminho absoluto do Windows. A verificação não é
 paranoia: é a única forma de o harness nunca entregar caminho ruim ao AHK.
 
+## `basic/Cobertura.bas` — a planilha que confere a própria conta
+
+O plano original pedia **VBA**. VBA exige Microsoft Office, que é **pago**, e a
+regra declarada do portfólio é *nenhum recurso pago*. Então o item foi feito em
+**LibreOffice Basic** — livre (MPL-2.0), roda *headless* — e está **rotulado
+como tal**, não como VBA.
+
+```
+$ ./basic/roda.sh
+total=40
+distintas=39
+sobreposicao=1
+linhas=14
+```
+
+O `total=40` **não foi calculado pelo Basic**: ele saiu do motor de cálculo do
+LibreOffice avaliando `=SUM(C2:C15)`, e a macro o **leu de volta** da célula.
+O `distintas=39` vem do `cobertura.lua`. A suíte compara os dois, e a
+sobreposição de 1 é o Rust, que aparece no P01 e no P03.
+
+### Por que uma planilha, e não mais um relatório de texto
+
+Porque a conta que importa **não é a soma das colunas**. A planilha gravada
+tem `=SUM()` de verdade no `content.xml` — quem abre vê a fórmula e confere.
+Se a macro escrevesse o total já somado, o arquivo pareceria igual e não
+seria, e a suíte tem um teste exatamente para isso:
+
+```
+  ok    o .ods guarda =SUM() de verdade, não um valor pré-somado
+```
+
+### O que não é VBA, concretamente
+
+| | VBA | LibreOffice Basic |
+|---|---|---|
+| sintaxe | `Sub`, `Dim`, `For...Next`, `Option Explicit` | **iguais** |
+| modelo de objetos | `Workbooks`, `Worksheets`, `Range("A1")` | UNO: `ThisComponent.Sheets.getByIndex(0).getCellByPosition(0,0)` |
+| onde a macro mora | dentro do `.xlsm` | numa biblioteca do perfil, em arquivo de texto |
+
+O LibreOffice tem `Option VBASupport 1`, que liga uma camada de
+compatibilidade e faz `Range` funcionar. **Este arquivo não a usa**, de
+propósito — usá-la seria escrever VBA fingido num produto que não é o Office.
+A suíte falha se o `Option` aparecer.
+
+E a macro morar em **arquivo de texto** em vez de dentro de um binário é uma
+vantagem real num repositório: o código é versionável e revisável.
+
+### Três coisas que custaram tempo
+
+**O perfil tem de ser inicializado pelo LibreOffice.** A primeira versão criava
+a árvore `user/basic/Standard` à mão, com um `script.xlb` escrito por mim. A
+macro **não rodava, e sem mensagem nenhuma**: stdout e stderr vazios, retorno
+0. Deixando o LibreOffice criar o perfil, vê-se que ele já registra um módulo
+`Module1` — e o caminho certo é sobrescrever esse módulo, não inventar o
+índice.
+
+**O perfil é dedicado, via `-env:UserInstallation`.** Um teste que mexe na
+instalação de LibreOffice de quem está na máquina é um teste que não se pode
+rodar duas vezes com confiança.
+
+**Nenhum `MsgBox` no caminho normal.** Janela em automação pendura o processo
+até o *timeout* — a mesma armadilha que o AutoHotkey deste repositório já
+custou duas vezes. A macro escreve num arquivo, e a suíte verifica que só
+existe um `MsgBox`, no caminho de erro de configuração.
+
 ## A metade Windows da suíte, e por que ela é separada
 
 `verifica.sh` roda em bash e cobre as ferramentas POSIX. `verifica.ps1` cobre
@@ -800,9 +866,9 @@ canalizar**.
 
 | linguagem | ferramenta prevista | terreno |
 |---|---|---|
-| **VBA** | automação de planilha | **o primeiro item genuinamente bloqueado do portfólio** — ver abaixo |
+| **LibreOffice Basic** | automação de planilha | no lugar do VBA, que exige Office pago — ver abaixo |
 
-### VBA: o primeiro bloqueio real
+### VBA: o bloqueio, e o que entrou no lugar
 
 Verificado nesta máquina: **não há Office nem LibreOffice instalado**, e
 `Excel.Application`/`Word.Application` não estão registrados.
@@ -817,5 +883,8 @@ maior parte do mesmo terreno e roda *headless* (`soffice --headless
 chamá-lo de VBA seria a mesma desonestidade que chamar o flake de "reproduz os
 números medidos".
 
-A decisão fica declarada aqui em vez de escondida: o que couber em LibreOffice
-Basic será feito e **rotulado como LibreOffice Basic**.
+A decisão ficou declarada em vez de escondida, e foi executada:
+`basic/Cobertura.bas` está feito, verificado por 7 testes, e **rotulado como
+LibreOffice Basic**. O registro do que a instalação acrescentou à máquina — e
+como removê-la — está em
+[AMBIENTE.md](https://github.com/Brunowdgaster/poliglota/blob/main/AMBIENTE.md).

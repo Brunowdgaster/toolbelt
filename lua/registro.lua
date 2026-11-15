@@ -96,12 +96,15 @@ return {
     P12 = {
       nome = "toolbelt",
       itens_no_plano = 15,  -- inclui Makefile, Nix, Dockerfile, YAML, HCL
-      -- 10 linguagens previstas, e o VBA e o PRIMEIRO BLOQUEIO REAL do
-      -- portfolio: exige Office, que e pago, e a regra declarada e "nenhum
-      -- recurso pago". Verificado nesta maquina: nao ha Office nem
-      -- LibreOffice. O caminho livre e LibreOffice Basic, que e OUTRO
-      -- DIALETO -- sera feito e rotulado como tal, nao como VBA.
-      planejadas = 10,
+      -- 11 linguagens: as 10 previstas mais o LibreOffice Basic, que entrou no
+      -- lugar do VBA.
+      --
+      -- O VBA exige Microsoft Office, que e PAGO, e a regra declarada e
+      -- "nenhum recurso pago". O LibreOffice Basic e livre (MPL-2.0), roda
+      -- headless, e cobre o mesmo terreno -- mas e OUTRO DIALETO, e esta
+      -- rotulado como tal. A macro NAO usa Option VBASupport, de proposito:
+      -- o objetivo e a API nativa UNO, nao VBA fingido.
+      planejadas = 11,
       feitas = {
         "Perl", -- lint_medicoes.pl: numero publicado sem dispersao ao lado
         "AWK",  -- estatistica.awk: faixa, dispersao e a regra de decisao
@@ -113,6 +116,7 @@ return {
         "PowerShell", -- Audita-Repos.ps1, com par em bash: as duas concordam
         "Bash", -- bash/audita-repos.sh: o par POSIX do PowerShell
         "AutoHotkey", -- Verifica-Ambiente.ahk: nomeia a causa que o calibra.sh so sente
+        "LibreOffice Basic", -- Cobertura.bas: a cobertura como planilha com =SUM() de verdade
       },
     },
 
@@ -126,12 +130,12 @@ return {
         "Logo",     -- licoes.lg: openwrite/setwrite porque o build e so grafico
         "Scratch",  -- gera.py + simula.py: .sb3 gerado E interpretado aqui
         "Blockly",  -- blocos.js: dois geradores, um deles emite codigo forge
+        "Smalltalk", -- licoes.st: classe de verdade, em Pharo 11 headless
       },
-      -- Falta SMALLTALK, e e a segunda ressalva declarada do portfolio junto
-      -- com o VBA do P12. Tentado: gnu-smalltalk nao existe mais no apt;
-      -- squeak-vm + etoys instalam e a VM sobe, mas a imagem do Etoys ignora
-      -- o .st; baixar Pharo (livre, MIT, roda headless) esta bloqueado pela
-      -- politica de rede da sessao.
+      -- COMPLETO. O Smalltalk exigiu Pharo por download: gnu-smalltalk nao
+      -- existe mais no apt, e squeak-vm + etoys instalam mas a imagem do
+      -- Etoys ignora o .st. O Pharo e livre (MIT) e autocontido -- registrado
+      -- em AMBIENTE.md do indice, com o comando de remocao.
     },
   },
 }

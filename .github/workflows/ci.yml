@@ -43,6 +43,16 @@ jobs:
           (cd /tmp/p01 && bash build.sh)
           /tmp/p01/build-switch/fvm version
 
+      - name: LibreOffice sem interface (para o Basic)
+        run: |
+          # --no-install-recommends para nao trazer a interface grafica
+          # inteira: o que importa e o motor de calculo e o interpretador
+          # Basic, e os dois rodam headless.
+          sudo apt-get install -y -qq --no-install-recommends             libreoffice-core libreoffice-calc libreoffice-script-provider-python
+          # Falha ALTO se nao instalou. Sem isto a suite PULARIA a secao do
+          # Basic e passaria verde tendo verificado menos do que diz.
+          soffice --version
+
       - name: suite (sem nix)
         env:
           P01: /tmp/p01

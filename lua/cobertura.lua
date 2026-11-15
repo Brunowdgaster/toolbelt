@@ -50,6 +50,7 @@ end
 -- ------------------------------------------------------------- argumentos
 
 local caminho_registro, caminho_roadmap
+local formato = "humano"
 
 do
   local i = 1
@@ -58,6 +59,18 @@ do
     if a == "--roadmap" then
       i = i + 1
       caminho_roadmap = arg[i] or uso()
+    elseif a == "--tsv" then
+      -- Saida para OUTRO PROGRAMA ler, e nao para humano.
+      --
+      -- Existe porque a macro em LibreOffice Basic (basic/Cobertura.bas)
+      -- monta uma planilha a partir destes numeros, e fazer o Basic analisar
+      -- a tabela alinhada por espacos seria pedir para quebrar na primeira
+      -- vez que um nome de projeto crescesse.
+      --
+      -- TSV e nao CSV: nenhum campo aqui tem tabulacao, e varios podem ter
+      -- virgula. Escolher o separador que os dados nao contem elimina a
+      -- necessidade de escapar -- e escapar e onde parsers artesanais erram.
+      formato = "tsv"
     elseif a == "--ajuda" then
       uso(0)
     elseif a:sub(1, 1) == "-" then
@@ -187,6 +200,25 @@ for _, id in ipairs(ids) do
 end
 
 -- ---------------------------------------------------------------- relatório
+
+-- A saida TSV sai antes do relatorio humano e termina o programa: os dois
+-- formatos nunca se misturam no mesmo fluxo, porque quem le por programa nao
+-- tem como ignorar uma linha decorativa.
+if formato == "tsv" then
+  -- Cabecalho com nome de coluna: a macro do Basic acha as colunas por nome,
+  -- nao por posicao. Acrescentar uma coluna no fim nao quebra o consumidor.
+  print("projeto\tnome\tfeitas\tplanejadas")
+  for _, id in ipairs(ids) do
+    local p = registro.projetos[id]
+    print(("%s\t%s\t%d\t%d"):format(id, p.nome or "", #p.feitas, p.planejadas))
+  end
+  -- As DISTINTAS vao numa linha propria, com projeto "=DISTINTAS", porque
+  -- elas nao sao a soma das colunas -- a sobreposicao de Rust entre P01 e P03
+  -- conta uma vez. E justamente o numero que a planilha NAO pode calcular
+  -- somando, e e por isso que ele vem de fora.
+  print(("=DISTINTAS\t\t%d\t%d"):format(n_distintas, registro.meta or 100))
+  os.exit(0)
+end
 
 local function barra(feito, total, largura)
   if total == 0 then return ("-"):rep(largura) end

@@ -36,7 +36,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")"
 
-FERRAMENTAS=(perl awk lua raku tcl nix groovy par)
+FERRAMENTAS=(perl awk lua raku tcl nix groovy par basic)
 [ $# -gt 0 ] && FERRAMENTAS=("$@")
 
 passou=0
@@ -551,6 +551,88 @@ print(json.dumps(sorted(d, key=lambda r: r['Repo']), sort_keys=True))
     else
       bad "--listar não explica os itens"
     fi
+  fi
+fi
+
+# ------------------------------------------------------------------ basic
+if [[ " ${FERRAMENTAS[*]} " == *" basic "* ]]; then
+  echo
+  echo "basic/Cobertura.bas — a cobertura como planilha auditável"
+  echo
+
+  if ! command -v soffice >/dev/null 2>&1; then
+    printf '  \033[90mpulado\033[0m  soffice ausente: apt-get install --no-install-recommends libreoffice-core libreoffice-calc\n'
+  elif ! command -v lua5.4 >/dev/null 2>&1; then
+    printf '  \033[90mpulado\033[0m  lua5.4 ausente\n'
+  else
+    dir_ods="$(mktemp -d)"
+    ods="$dir_ods/cobertura.ods"
+
+    # O retorno capturado ANTES de qualquer cano: medir `$?` depois de um
+    # `| grep` mede o grep, e esse erro ja apareceu quatro vezes neste
+    # portfolio.
+    saida_bas=$(bash basic/roda.sh --saida "$ods" 2>&1); ret_bas=$?
+
+    if [ $ret_bas -eq 0 ] && [ -s "$ods" ]; then
+      ok "a macro roda sem interface e grava o .ods"
+    else
+      bad "a macro falhou (retorno $ret_bas)" "$(printf '%s' "$saida_bas" | head -2)"
+    fi
+
+    # O NUMERO DA PLANILHA tem de bater com o do contador em Lua.
+    #
+    # Esta e a verificacao que justifica a ferramenta: o total sai do motor de
+    # calculo do LibreOffice avaliando `=SUM(C2:C15)`, e as distintas saem do
+    # Lua. Se divergirem, uma das duas contas esta errada -- e a sobreposicao
+    # de Rust entre P01 e P03 e justamente o que uma soma nao enxerga.
+    relato=$(lua5.4 lua/cobertura.lua lua/registro.lua 2>/dev/null)
+    lua_dist=$(printf '%s' "$relato" | grep -oE 'DISTINTAS: [0-9]+' | grep -oE '[0-9]+')
+    lua_soma=$(printf '%s' "$relato" | grep -oE 'soma por projeto da [0-9]+' | grep -oE '[0-9]+')
+
+    ods_total=$(printf '%s' "$saida_bas" | grep -oE '^total=[0-9]+' | cut -d= -f2)
+    ods_dist=$(printf '%s' "$saida_bas" | grep -oE '^distintas=[0-9]+' | cut -d= -f2)
+    ods_sobre=$(printf '%s' "$saida_bas" | grep -oE '^sobreposicao=[0-9]+' | cut -d= -f2)
+
+    igual "o =SUM() do LibreOffice confere com o contador em Lua" \
+          "$lua_soma" "$ods_total"
+    igual "as linguagens distintas conferem" "$lua_dist" "$ods_dist"
+    igual "a sobreposição por fórmula (soma - distintas)" \
+          "$((lua_soma - lua_dist))" "$ods_sobre"
+
+    # O .ods guarda FORMULA, e nao valor pre-calculado.
+    #
+    # E a diferenca entre planilha auditavel e relatorio: quem abre ve
+    # `=SUM(C2:C15)` e confere. Se a macro escrevesse o total ja somado em
+    # Basic, o arquivo pareceria igual e nao seria.
+    if command -v unzip >/dev/null 2>&1 \
+       && unzip -p "$ods" content.xml 2>/dev/null | grep -q 'table:formula="of:=SUM'; then
+      ok "o .ods guarda =SUM() de verdade, não um valor pré-somado"
+    else
+      bad "não achei fórmula SUM no content.xml do .ods"
+    fi
+
+    # NAO usa a camada de compatibilidade com VBA, de proposito: o objetivo e
+    # mostrar a API nativa (UNO), e nao escrever VBA fingido num produto que
+    # nao e o Office. Isto tambem trava a honestidade do rotulo.
+    # A ancora e `^ *Option`, e nao a palavra solta: a primeira versao deste
+    # teste FALHOU porque o proprio comentario do Cobertura.bas menciona
+    # `Option VBASupport 1` para explicar por que nao o usa. Distinguir codigo
+    # de prosa e o mesmo problema que o lint_medicoes.pl resolve com classes
+    # de exclusao.
+    if ! grep -qiE '^[[:space:]]*Option[[:space:]]+VBASupport' basic/Cobertura.bas; then
+      ok "sem Option VBASupport: é a API nativa UNO, não VBA fingido"
+    else
+      bad "Option VBASupport apareceu: deixa de ser LibreOffice Basic nativo"
+    fi
+
+    # `MsgBox` no caminho normal pendura o processo esperando alguem fechar a
+    # janela -- a mesma armadilha que o AutoHotkey deste repositorio custou
+    # duas vezes e o UCBLogo do p14 uma terceira. A macro escreve em ARQUIVO,
+    # e so usa MsgBox no caminho de erro de configuracao.
+    n_msgbox=$(grep -cE '^ *MsgBox' basic/Cobertura.bas)
+    igual "MsgBox só no caminho de erro de configuração" "1" "$n_msgbox"
+
+    rm -rf "$dir_ods"
   fi
 fi
 
