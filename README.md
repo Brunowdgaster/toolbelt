@@ -8,8 +8,8 @@ bash verifica.sh          # todas as ferramentas, nas duas direções
 bash verifica.sh perl     # só essa
 ```
 
-> **Status:** 3 das 10 linguagens previstas. Perl, AWK e Lua estão completas e
-> verificadas, com 22 testes. Tcl/Expect, Raku, Groovy, Nix, PowerShell,
+> **Status:** 5 das 10 linguagens previstas. Perl, AWK, Lua, Raku e Tcl/Expect
+> estão completas e verificadas, com **29 testes**. Groovy, Nix, PowerShell,
 > AutoHotkey e VBA pendentes — ver [Roadmap](#roadmap).
 
 ## O princípio: nenhuma ferramenta é demonstração
@@ -22,6 +22,8 @@ delas corrigiram erros meus na primeira execução.
 | `perl/lint_medicoes.pl` | Perl | número publicado sem dispersão ao lado | a auditoria do P03 corrigiu **7** afirmações com esse defeito, e eu as achei lendo à mão |
 | `awk/estatistica.awk` | AWK | faixa, dispersão e a regra de decisão | reescrevi essa lógica em Elixir, Bash e Shell, **três vezes** |
 | `lua/cobertura.lua` | Lua | planejado contra feito, com sobreposição | contei as linguagens à mão três vezes e **errei uma** |
+| `raku/gramatica_fasm.raku` | Raku | parser do assembly do P01, verificado contra o desmontador em C | o P01 tem 7 implementações da VM e **nenhum parser independente** do `.fasm` |
+| `tcl/dirige_repl.exp` | Tcl/Expect | dirigir um REPL e conferir a resposta | os portes de OCaml e Lua foram testados por linha de comando, que **não testa o REPL** |
 
 ## `perl/lint_medicoes.pl` — o lint que a auditoria me fez falta
 
@@ -182,10 +184,145 @@ roadmap não achasse nada, não haveria divergência e o teste passaria sem ter
 comparado coisa alguma. Por isso a suíte tem um fixture com `itens_no_plano =
 99` e exige que a ferramenta **acuse**.
 
-## A suíte: 22 testes, nas duas direções
+## `raku/gramatica_fasm.raku` — uma grammar, verificada contra o C
+
+O plano diz que Raku entra para mostrar **a evolução sobre Perl**, e a
+diferença que importa é esta: em Perl, um parser de formato é uma pilha de
+regexes com nomes em comentário. Em Raku é uma `grammar` — regras nomeadas,
+compostas, com a classe de ações separada da sintaxe.
+
+O `lint_medicoes.pl` deste mesmo repositório é o contraste direto: lá o
+problema é casamento oportunista em texto livre, e **Perl ganha**. Aqui o
+problema tem gramática, e é outro jogo.
+
+### O que torna isto verificável, e não decorativo
+
+O subcomando `dis` emite o **mesmo formato** que o `fvm dis` do P01, com os
+offsets em bytes:
+
+```
+000000  PUSH     7
+000018  CALL     26 2
+000024  PRINT
+```
+
+Casar isso obriga a grammar a conhecer o **tamanho de codificação de cada
+instrução** e a resolver rótulos em endereços — ou seja, a fazer **as duas
+passagens de um montador de verdade**. Um offset errado aparece na hora.
+
+**Resultado: 9/9 byte a byte** contra o desmontador em C. É o mesmo padrão dos
+portes do P01 (bytecode byte-idêntico) aplicado a um parser, e a verificação é
+contra uma implementação independente, em outra linguagem.
+
+### A lacuna que a verificação cruzada achou
+
+A primeira versão da grammar só aceitava decimal, e o `arith.fasm` falhava em
+`PUSH 0x10` com a mensagem inútil *"a grammar nao casou com o arquivo
+inteiro"*.
+
+A causa: o montador em C usa `strtoll(s, &end, 0)` — **base 0**, que aceita
+`0x..`, `0..` e decimal. **Eu não sabia que o formato aceitava hexadecimal**, e
+quem me disse foi o diff contra o C, não a leitura do meu próprio código.
+
+É o argumento inteiro a favor de verificar contra implementação independente em
+vez de contra a própria expectativa.
+
+E a ordem das alternativas na gramática importa: hex antes de octal antes de
+decimal. Se decimal viesse primeiro, `0x10` casaria o `0` e deixaria `x10` para
+trás — silenciosamente.
+
+### O espaço que ninguém vê
+
+O diff inicial acusou **todos os 9 casos**, e a diferença era um espaço:
+
+```
+C:     000024  PRINT
+Raku:  000024  PRINT
+                    ^ um espaço a mais
+```
+
+O `fvm dis` emite `%-8s` para o mnemônico e depois `" %d"` para **cada**
+operando. Eu havia escrito `%-8s %s`, o que acrescenta um espaço mesmo sem
+operandos. Reproduzir um formato byte a byte inclui reproduzir o espaço em
+branco final.
+
+## `tcl/dirige_repl.exp` — o que a linha de comando não testa
+
+Os portes do verificador em OCaml e F# foram testados **por linha de comando**:
+rodar o binário, comparar a saída. O que isso não testa é o **REPL**: o estado
+acumulado entre expressões, o prompt que muda de forma, o eco da entrada.
+
+Em OCaml, `let x = 40;;` seguido de `x + 2;;` depende de o toplevel ter
+guardado `x`. Nenhum teste de linha de comando exercita isso.
+
+```
+ocaml — o toplevel, e o estado que acumula entre expressoes
+  ok  2 + 3 infere int = 5
+  ok  let x = 40 liga o nome
+  ok  x + 2 USA o nome ligado antes
+  ok  identidade infere 'a -> 'a
+  ok  1 + true e erro de tipo
+  ok  sobrevive ao erro anterior
+
+lua — o prompt que muda quando a expressao esta incompleta
+  ok  o REPL anunciou a versao
+  ok  print de soma, com sonda inequivoca
+  ok  variavel global persiste
+  ok  le a variavel da linha anterior
+  ok  prompt de continuacao apareceu (>> para expressao incompleta)
+  ok  a funcao fecha e e chamavel
+```
+
+Automatizar programa interativo é o terreno onde **Expect não tem
+substituto**. Não é "Tcl é bom nisso": `spawn`, `expect` e `send` são a razão
+pela qual o Expect foi escrito.
+
+### O achado: o mesmo programa emite bytes diferentes num terminal
+
+O teste do erro de tipo em OCaml falhava por *timeout* — parecendo que o REPL
+não respondia, quando ele respondia perfeitamente.
+
+Sob um **pty**, o OCaml liga as mensagens coloridas:
+
+```
+<ESC>[0m<ESC>[1;31mError<ESC>[0m: The constructor <ESC>[4mtrue<ESC>[0m has type bool
+```
+
+O padrão `has type bool` não casa, porque há escapes entre as palavras. Ele
+também emite `<ESC>[1A` para redesenhar a linha de entrada.
+
+**Nada disso aparece quando o mesmo comando lê de um pipe**: o OCaml detecta
+que não é terminal e desliga as cores. Ou seja, o mesmo programa emite bytes
+diferentes num terminal e num pipe — e é exatamente por isso que automatizar
+programa interativo precisa de Expect, e por que **um teste por pipe não é o
+mesmo teste**.
+
+A correção foi `-color never` no `spawn`, documentada no arquivo.
+
+### Três armadilhas do Expect, pagas em sequência
+
+**`spawn` dentro de um `proc` torna `spawn_id` uma variável local.** O proc que
+envia e espera, sendo outro escopo, lê o `spawn_id` **global**, que está vazio
+— então `send` vai para o nada e `expect` vê `eof` na hora, com a mensagem "o
+REPL morreu antes de responder". O sintoma é perfeito para enganar: parece que
+o REPL caiu, e o REPL nunca foi falado. Resolve com `global spawn_id`.
+
+**Casar a redação inteira de uma mensagem a quebra na próxima versão.** Eu
+esperava `This expression has type bool`, de memória; o OCaml 5.4 diz `The
+constructor true has type bool`. Casar o trecho **estável** é a diferença entre
+um teste que sobrevive à atualização do compilador e um que não.
+
+**Uma sonda genérica casa com o que não devia.** O teste do Lua esperava `5` e
+casava o "5" de **"Lua 5.4"** — o banner ainda estava no buffer. Era um falso
+positivo: o teste passaria sem o REPL ter calculado nada. Ajustar o regex não
+resolve; a correção é tornar a **sonda** inequívoca (`SOMA=5`). Se a asserção
+pode casar com algo sem relação, ela não é asserção.
+
+## A suíte: 29 testes, nas duas direções
 
 Cada ferramenta é testada **nas duas direções**: tem de achar o que deve achar
-(fixture sujo) e ficar calada no que está certo (fixture limpo).
+(fixture sujo) e ficar calada no que está certo (fixture limpo). São **29
+verificações** no total.
 
 Testar só uma direção é o erro clássico em ferramenta de análise: um lint
 testado só contra código ruim passa mesmo se acusar tudo, e um testado só
@@ -207,17 +344,24 @@ código**:
 
 Os três são de categorias diferentes e nenhum aparece em revisão de código.
 
-E nos meus próprios testes, duas vezes: eu medi `$?` depois de `| tail`,
-medindo o `tail` em vez do programa — todos os casos "passavam" com 0. É a
-mesma armadilha do `pipefail` que já havia aparecido no verificador do P02, e a
-razão de cada verificação aqui **redirecionar em vez de canalizar**.
+E nos meus próprios testes, **três** vezes a mesma família de erro — o
+instrumento de observação corrompendo a observação:
+
+* medi `$?` depois de `| tail`, medindo o `tail` em vez do programa: todos os
+  casos "passavam" com 0;
+* canalizei a saída do Expect por `head -8`, e quando o pipe fechou o Expect
+  quebrou com `error writing "stdout": bad file number` — um erro sem relação
+  nenhuma com o teste;
+* e no P02, `pipefail` fazia a linha de base falhar sempre, porque os casos de
+  erro saem com código não-zero **de propósito**.
+
+É a razão de cada verificação aqui **redirecionar para arquivo em vez de
+canalizar**.
 
 ## Roadmap
 
 | linguagem | ferramenta prevista | terreno |
 |---|---|---|
-| **Tcl/Expect** | dirigir um REPL de verdade | automação interativa, onde Expect não tem substituto |
-| **Raku** | *grammar* para o `.fasm` do P01 | a evolução sobre Perl: regex nomeado e composicional |
 | **Groovy** | pipeline declarativo | Jenkins e Gradle de verdade |
 | **Nix** | `nix develop` com o ambiente dos 14 projetos | o entregável que o plano chama de impressionante |
 | **PowerShell** | o par POSIX↔Windows do mesmo trabalho | duas culturas, um problema |

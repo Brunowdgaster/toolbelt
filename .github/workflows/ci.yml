@@ -14,7 +14,7 @@ jobs:
   # inteiro no runner, diferente dos jobs de benchmark dos outros projetos.
   ferramentas:
     runs-on: ubuntu-latest
-    name: ferramentas (Perl, AWK, Lua)
+    name: ferramentas (Perl, AWK, Lua, Raku, Tcl)
     steps:
       - uses: actions/checkout@v5
 
@@ -23,12 +23,29 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           # perl e gawk ja vem na imagem; lua5.4 nao.
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lua5.4
+          # ocaml entra porque o roteiro do Expect dirige o toplevel dele.
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            lua5.4 rakudo expect ocaml
           perl -e 'print "perl $]\n"'
           awk 'BEGIN { print "awk", PROCINFO["version"] }'
           lua5.4 -e 'print(_VERSION)'
+          raku -e 'say "raku ", $*RAKU.compiler.version'
+          echo "expect $(expect -c 'puts [exp_version]')"
+          ocaml -version
 
-      - name: suite (22 verificacoes)
+      # O p01 e um repositorio separado, e a grammar em Raku e verificada
+      # CONTRA o desmontador em C dele. Sem ele a verificacao cruzada seria
+      # impossivel, e o verifica.sh diz isso em vez de pular em silencio.
+      - name: clonar e compilar a VM do p01
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/Brunowdgaster/metal-vm /tmp/p01
+          (cd /tmp/p01 && bash build.sh)
+          /tmp/p01/build-switch/fvm version
+
+      - name: suite (29 verificacoes)
+        env:
+          P01: /tmp/p01
         run: bash verifica.sh
 
       # O lint rodando sobre os READMEs deste repositorio: ele tem de passar

@@ -215,9 +215,22 @@ for my $arq (@arquivos) {
         next if $linha =~ $DISPENSA;
         next if $i > 0 && $linhas[$i - 1] =~ $DISPENSA;
 
-        # Acha as medições da linha.
+        # Código INLINE sai antes da busca.
+        #
+        # `` `0x..` `` virava a razão "0x" e `` `%-8s` `` virava "8 segundos".
+        # Os dois são texto literal citado, não afirmação do autor — a mesma
+        # razão pela qual blocos cercados (```) já eram excluídos. Só faltava
+        # aplicar a regra ao código inline.
+        #
+        # Esta exclusão também veio de falso positivo real: a ferramenta
+        # acusou o próprio README deste repositório em três linhas, todas com
+        # número dentro de backtick.
+        my $prosa = $linha;
+        $prosa =~ s/`[^`]*`//g;
+
+        # Acha as medições da PROSA, não da linha inteira.
         my @medicoes;
-        while ($linha =~ /($NUMERO)\s*($UNIDADE_TEMPO|$RAZAO)/g) {
+        while ($prosa =~ /($NUMERO)\s*($UNIDADE_TEMPO|$RAZAO)/g) {
             push @medicoes, "$1 $2";
         }
         next unless @medicoes;

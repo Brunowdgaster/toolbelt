@@ -24,3 +24,7 @@ A BEAM cria 122.079 por segundo.
 ## Microssegundos
 
 A latência de atendimento é de 318 µs.
+
+## Numero em prosa, com codigo inline na MESMA linha
+
+O campo `%-8s` alinha, e a operacao leva 9,4 ms.

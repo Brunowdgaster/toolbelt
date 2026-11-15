@@ -86,6 +86,8 @@ return {
         "Perl", -- lint_medicoes.pl: numero publicado sem dispersao ao lado
         "AWK",  -- estatistica.awk: faixa, dispersao e a regra de decisao
         "Lua",  -- cobertura.lua: esta propria conta
+        "Raku", -- gramatica_fasm.raku: 9/9 contra o desmontador em C
+        "Tcl",  -- dirige_repl.exp: 12 interacoes com REPL de verdade
       },
     },
 

@@ -1,0 +1,254 @@
+#!/usr/bin/expect -f
+#
+# dirige_repl.exp — dirige um REPL de verdade e confere o que ele responde.
+#
+#   expect dirige_repl.exp ocaml
+#   expect dirige_repl.exp lua
+#   expect dirige_repl.exp todos
+#
+# ## Por que esta ferramenta existe
+#
+# Este portfólio tem dois portes de verificador de tipos em OCaml e F#, e um
+# porte de VM em Lua planejado. Os três foram testados por **linha de comando**:
+# rodar o binário, comparar a saída.
+#
+# O que isso NÃO testa é o **REPL**: o estado acumulado entre expressões, o
+# prompt que muda de forma conforme a expressão está incompleta, o eco da
+# entrada. Em OCaml, `let x = 1;;` seguido de `x + 1;;` depende de o toplevel
+# ter guardado `x` — e nenhum teste de linha de comando exercita isso.
+#
+# Automatizar um programa interativo é o terreno onde **Expect não tem
+# substituto**. Não é "Tcl é bom nisso": é que `spawn`, `expect` e `send` são a
+# razão pela qual o Expect foi escrito, e todo o resto do ecossistema
+# reimplementa isso pior.
+#
+# ## O que torna isto um teste, e não uma demonstração
+#
+# Cada interação declara **o que espera de volta**, e o roteiro falha se o
+# REPL responder outra coisa — inclusive se ele não responder nada e o
+# cronômetro estourar, que é o modo de falha que um script ingênuo trata como
+# sucesso.
+#
+# ## A armadilha que esta ferramenta existe para não cair
+#
+# `expect` sem `timeout` espera para sempre. Um REPL que morre no meio deixa o
+# script pendurado, e em CI isso vira um job de seis horas em vez de uma falha
+# em dois segundos. Aqui o `timeout` é global e **cada** `expect` trata o caso
+# explicitamente.
+
+set timeout 10
+log_user 0
+
+set passou 0
+set falhou 0
+
+proc ok {msg} {
+    global passou
+    puts "  ok    $msg"
+    incr passou
+}
+
+proc bad {msg {detalhe ""}} {
+    global falhou
+    puts "  FALHA $msg"
+    if {$detalhe ne ""} { puts "        $detalhe" }
+    incr falhou
+}
+
+# Envia uma expressão e exige um padrão na resposta.
+#
+# O `timeout` e o `eof` são tratados SEPARADAMENTE do caso de sucesso, de
+# propósito: um `expect` com um padrão só confunde "respondeu outra coisa",
+# "não respondeu" e "morreu" num único silêncio.
+proc interage {rotulo entrada esperado} {
+    send -- "$entrada\r"
+
+    expect {
+        -re $esperado {
+            ok "$rotulo"
+            return 1
+        }
+        timeout {
+            bad "$rotulo" "o REPL nao respondeu em ${::timeout}s (esperava /$esperado/)"
+            return 0
+        }
+        eof {
+            bad "$rotulo" "o REPL morreu antes de responder"
+            return 0
+        }
+    }
+}
+
+# ------------------------------------------------------------------- OCaml
+#
+# O toplevel do OCaml e o caso mais interessante porque o porte do verificador
+# do p02 e escrito nele: aqui o REPL confere que o AMBIENTE acumula, que e o
+# que a linha de comando nao testa.
+proc dirige_ocaml {} {
+    # `global spawn_id` E OBRIGATORIO, e a falta dele custou uma depuracao
+    # inteira.
+    #
+    # Em Tcl, `spawn` ATRIBUI a variavel `spawn_id`. Dentro de um proc, essa
+    # atribuicao cria uma variavel LOCAL -- e o proc `interage`, sendo outro
+    # escopo, le o `spawn_id` GLOBAL, que esta vazio. O resultado: `send` vai
+    # para o nada e `expect` ve `eof` imediatamente, com a mensagem "o REPL
+    # morreu antes de responder".
+    #
+    # O sintoma e perfeito para enganar: parece que o REPL caiu, e o REPL nunca
+    # foi falado. Um roteiro de Expect escrito todo no escopo global nao tem
+    # esse problema, e e por isso que a maioria dos exemplos por ai e um script
+    # linear sem procs.
+    global spawn_id
+
+    if {[catch {exec which ocaml}]} {
+        puts "  (ocaml ausente, pulando)"
+        return
+    }
+
+    puts ""
+    puts "ocaml — o toplevel, e o estado que acumula entre expressoes"
+    puts ""
+
+    # `-color never` E NECESSARIO, e a razao e o achado mais interessante
+    # desta ferramenta.
+    #
+    # Sob um PTY, o OCaml liga as mensagens de erro colorida e emite escapes
+    # ANSI no meio do texto:
+    #
+    #     <ESC>[0m<ESC>[1;31mError<ESC>[0m: The constructor <ESC>[4mtrue<ESC>[0m
+    #                                        has type bool
+    #
+    # O padrao `has type bool` nao casa, porque ha escapes entre as palavras.
+    # Ele tambem emite `<ESC>[1A` (cursor para cima) para redesenhar a linha de
+    # entrada.
+    #
+    # Nada disso aparece quando o mesmo comando le de um PIPE: o OCaml detecta
+    # que nao e terminal e desliga as cores. Ou seja, **o mesmo programa emite
+    # bytes diferentes num terminal e num pipe** -- e e exatamente por isso que
+    # automatizar programa interativo precisa de Expect, e por que um teste por
+    # pipe nao e o mesmo teste.
+    spawn ocaml -color never -noprompt -nopromptcont
+
+    # 1. Aritmetica basica: o REPL responde com o tipo inferido.
+    interage "2 + 3 infere int = 5" "2 + 3;;" {int = 5}
+
+    # 2. O ESTADO ACUMULA. Esta e a verificacao que a linha de comando nao faz.
+    interage "let x = 40 liga o nome" "let x = 40;;" {val x : int = 40}
+    interage "x + 2 USA o nome ligado antes" "x + 2;;" {int = 42}
+
+    # 3. Inferencia polimorfica: o mesmo terreno do verificador do p02.
+    interage "identidade infere 'a -> 'a" \
+        "let ident y = y;;" {val ident : 'a -> 'a}
+
+    # 4. O REPL REJEITA o que nao tipa, e a mensagem diz o tipo esperado.
+    #
+    # O padrao e `has type bool`, e nao a frase inteira: o OCaml 5.4 diz
+    # "The constructor true has type bool", enquanto versoes anteriores diziam
+    # "This expression has type bool". Minha primeira versao casava a frase
+    # antiga, de memoria, e falhava por timeout -- parecendo que o REPL nao
+    # respondeu quando ele tinha respondido perfeitamente.
+    #
+    # Casar o trecho ESTAVEL da mensagem, e nao a redacao inteira, e a
+    # diferenca entre um teste que sobrevive a atualizacao do compilador e um
+    # que nao.
+    interage "1 + true e erro de tipo" "1 + true;;" {has type bool}
+
+    # 5. E continua VIVO depois do erro -- um REPL que morre no primeiro erro
+    #    seria inutil, e este teste prova que ele nao morre.
+    interage "sobrevive ao erro anterior" "x * 2;;" {int = 80}
+
+    send -- "#quit;;\r"
+    expect eof
+}
+
+# --------------------------------------------------------------------- Lua
+#
+# Lua entra porque o `cobertura.lua` deste repositorio e escrito nela, e
+# porque o REPL dela tem uma propriedade que o do OCaml nao tem: o PROMPT
+# MUDA quando a expressao esta incompleta.
+proc dirige_lua {} {
+    global spawn_id
+
+    set lua ""
+    foreach cand {lua5.4 lua} {
+        if {![catch {exec which $cand}]} { set lua $cand; break }
+    }
+
+    if {$lua eq ""} {
+        puts "  (lua ausente, pulando)"
+        return
+    }
+
+    puts ""
+    puts "lua — o prompt que muda quando a expressao esta incompleta"
+    puts ""
+
+    spawn $lua -i
+
+    expect {
+        -re {Lua 5\.\d} { ok "o REPL anunciou a versao" }
+        timeout { bad "o REPL nao anunciou versao" }
+        eof { bad "o REPL morreu ao iniciar" }
+    }
+
+    # A sonda e `SOMA=5`, e nao `5`, de proposito.
+    #
+    # Com o padrao `/5/`, o `expect` casava o "5" de "Lua 5.4" -- o banner de
+    # versao ainda estava no buffer. Era um FALSO POSITIVO: o teste passaria
+    # sem o REPL ter calculado nada.
+    #
+    # Ajustar o regex para `^5` nao resolve (o `^` ancora no inicio do BUFFER,
+    # que comeca com o eco da entrada). A correcao certa e tornar a SONDA
+    # inequivoca: se a asserção pode casar com algo sem relação, ela não é
+    # asserção.
+    interage "print de soma, com sonda inequivoca" \
+        "print('SOMA=' .. (2 + 3))" {SOMA=5}
+
+    # O estado acumula aqui tambem. As duas sondas sao marcadas, pelo mesmo
+    # motivo da anterior: `{>}` casaria com qualquer prompt e `{42}` poderia
+    # casar com um numero vindo de outro lugar do buffer.
+    interage "variavel global persiste" "n = 41; print('LIGOU')" {LIGOU}
+    interage "le a variavel da linha anterior" \
+        "print('N=' .. (n + 1))" {N=42}
+
+    # ESTE e o ponto do Lua: expressao incompleta troca o prompt de ">" para
+    # ">>". Nenhum teste de linha de comando ve isso, porque na linha de
+    # comando nao existe prompt.
+    send -- "function f(a)\r"
+    expect {
+        -re {>>} { ok "prompt de continuacao apareceu (>> para expressao incompleta)" }
+        timeout { bad "prompt de continuacao nao apareceu" }
+        eof { bad "o REPL morreu no meio da funcao" }
+    }
+
+    interage "a funcao fecha e e chamavel" \
+        "  return a * 2\rend\rprint('F=' .. f(21))" {F=42}
+
+    send -- "os.exit(0)\r"
+    expect eof
+}
+
+# -------------------------------------------------------------------- main
+
+set alvo [expr {$argc > 0 ? [lindex $argv 0] : "todos"}]
+
+puts ""
+puts "=============================================================="
+puts "  dirige_repl.exp — automacao de REPL com Expect"
+puts "=============================================================="
+
+switch -- $alvo {
+    ocaml { dirige_ocaml }
+    lua   { dirige_lua }
+    todos { dirige_ocaml; dirige_lua }
+    default {
+        puts "alvo desconhecido: $alvo (use ocaml, lua ou todos)"
+        exit 64
+    }
+}
+
+puts ""
+puts "=============================================================="
+puts "  $passou passaram, $falhou falharam"
+
+exit [expr {$falhou == 0 ? 0 : 1}]

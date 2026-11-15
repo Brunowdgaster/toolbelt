@@ -57,3 +57,8 @@ Esta linha tem 250 ms e está dispensada pela linha anterior.
 
 A conexão custa 3.534 bytes. O porte tem 255 linhas. A suíte passa 35 testes
 de 35. O arquivo tem 84 MB e a imagem 8,63 MB.
+
+## Numero dentro de codigo inline nao e afirmacao
+
+O montador usa `strtoll(s, &end, 0)`, que aceita `0x..` e `0..`.
+O desmontador emite `%-8s` para o mnemonico e `" %d"` por operando.

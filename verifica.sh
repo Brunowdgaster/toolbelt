@@ -36,7 +36,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")"
 
-FERRAMENTAS=(perl awk lua)
+FERRAMENTAS=(perl awk lua raku tcl)
 [ $# -gt 0 ] && FERRAMENTAS=("$@")
 
 passou=0
@@ -90,8 +90,8 @@ if [[ " ${FERRAMENTAS[*]} " == *" perl "* ]]; then
         awk '/^TOTAL/ { print $2 }'
     }
 
-    igual "fixture limpo: 0 achados (9 padrões legítimos)" "0" "$(total perl/t/limpo.md)"
-    igual "fixture sujo: 5 achados (5 defeitos)" "5" "$(total perl/t/sujo.md)"
+    igual "fixture limpo: 0 achados (10 padrões legítimos)" "0" "$(total perl/t/limpo.md)"
+    igual "fixture sujo: 6 achados (6 defeitos)" "6" "$(total perl/t/sujo.md)"
 
     # Código de saída: a ferramenta serve de portão de CI, então o código tem
     # de refletir o veredito.
@@ -102,11 +102,26 @@ if [[ " ${FERRAMENTAS[*]} " == *" perl "* ]]; then
     igual "sai 1 no fixture sujo" "1" "$?"
 
     # O orçamento tem de deixar passar exatamente o que ele promete.
-    perl perl/lint_medicoes.pl --orcamento 5 --resumo perl/t/sujo.md >/dev/null 2>&1
-    igual "--orcamento 5 aceita 5 achados" "0" "$?"
+    perl perl/lint_medicoes.pl --orcamento 6 --resumo perl/t/sujo.md >/dev/null 2>&1
+    igual "--orcamento 6 aceita 6 achados" "0" "$?"
 
-    perl perl/lint_medicoes.pl --orcamento 4 --resumo perl/t/sujo.md >/dev/null 2>&1
-    igual "--orcamento 4 recusa 5 achados" "1" "$?"
+    perl perl/lint_medicoes.pl --orcamento 5 --resumo perl/t/sujo.md >/dev/null 2>&1
+    igual "--orcamento 5 recusa 6 achados" "1" "$?"
+
+    # A exclusão de código inline tem de ser CIRÚRGICA: o último caso do
+    # fixture sujo tem código inline E um número em prosa na mesma linha, e o
+    # número tem de ser pego. Uma exclusão que descartasse a linha inteira
+    # passaria neste teste pelo motivo errado.
+    saida=$(perl perl/lint_medicoes.pl perl/t/sujo.md 2>&1)
+    if grep -q '9,4 ms' <<<"$saida"; then
+      ok "código inline é excluído sem descartar a linha"
+    else
+      bad "a exclusão de código inline engoliu a linha inteira"
+    fi
+
+    # E a ferramenta passa no PRÓPRIO README, que é cheio de números.
+    perl perl/lint_medicoes.pl --resumo README.md >/dev/null 2>&1
+    igual "passa no próprio README (orçamento 0)" "0" "$?"
   fi
 fi
 
@@ -236,6 +251,103 @@ if [[ " ${FERRAMENTAS[*]} " == *" lua "* ]]; then
     else
       ok "(ROADMAP não disponível; cruzamento não testado)"
     fi
+  fi
+fi
+
+# ------------------------------------------------------------------- raku
+if [[ " ${FERRAMENTAS[*]} " == *" raku "* ]]; then
+  echo
+  echo "raku/gramatica_fasm.raku — grammar do assembly, contra o desmontador em C"
+  echo
+
+  P01="${P01:-../p01-metal-vm}"
+  FVM="$P01/build-switch/fvm"
+
+  if ! command -v raku >/dev/null; then
+    bad "raku ausente" "sudo apt-get install rakudo"
+  elif [ ! -x "$FVM" ]; then
+    # O p01 é um repositório separado. Sem ele, a verificação cruzada é
+    # IMPOSSÍVEL -- e dizer isso é melhor que rodar meio teste.
+    bad "o fvm do p01 não existe em $FVM" \
+        "clone github.com/Brunowdgaster/metal-vm e rode bash build.sh"
+  else
+    casos=0
+    iguais=0
+    primeiro_diff=""
+
+    for f in "$P01"/tests/cases/*.fasm; do
+      casos=$((casos + 1))
+      a=$("$FVM" dis "$f" 2>&1)
+      b=$(raku raku/gramatica_fasm.raku dis "$f" 2>&1)
+
+      if [ "$a" = "$b" ]; then
+        iguais=$((iguais + 1))
+      elif [ -z "$primeiro_diff" ]; then
+        primeiro_diff=$(diff <(echo "$a") <(echo "$b") | head -6)
+      fi
+    done
+
+    if [ "$casos" -eq 0 ]; then
+      bad "nenhum caso .fasm encontrado em $P01/tests/cases"
+    elif [ "$iguais" -eq "$casos" ]; then
+      ok "$iguais/$casos byte a byte contra o fvm dis em C"
+    else
+      bad "$iguais/$casos" "$primeiro_diff"
+    fi
+
+    # Hexadecimal: o montador em C usa strtoll com base 0, e a primeira
+    # versão da grammar só aceitava decimal. O arith.fasm usa `PUSH 0x10`,
+    # e foi a verificação cruzada que achou a lacuna -- não a leitura do
+    # meu código.
+    printf '.entry m\nm:\n  PUSH 0x10\n  HALT\n' > /tmp/toolbelt_hex.fasm
+    saida=$(raku raku/gramatica_fasm.raku dis /tmp/toolbelt_hex.fasm 2>&1)
+    if grep -qE 'PUSH +16' <<<"$saida"; then
+      ok "0x10 é lido como 16 (base 0, igual ao strtoll do C)"
+    else
+      bad "hexadecimal não foi convertido" "$(tail -3 <<<"$saida")"
+    fi
+
+    # Octal, pela mesma razão.
+    printf '.entry m\nm:\n  PUSH 010\n  HALT\n' > /tmp/toolbelt_oct.fasm
+    saida=$(raku raku/gramatica_fasm.raku dis /tmp/toolbelt_oct.fasm 2>&1)
+    if grep -qE 'PUSH +8' <<<"$saida"; then
+      ok "010 é lido como 8 (octal)"
+    else
+      bad "octal não foi convertido" "$(tail -3 <<<"$saida")"
+    fi
+
+    # Rótulo não definido FALHA ALTO, em vez de virar offset 0 -- um salto
+    # para o endereço 0 é um programa que roda e faz a coisa errada.
+    printf '.entry m\nm:\n  JMP lugar_nenhum\n' > /tmp/toolbelt_mau.fasm
+    raku raku/gramatica_fasm.raku dis /tmp/toolbelt_mau.fasm >/dev/null 2>&1
+    igual "sai != 0 com rótulo não definido" "65" "$?"
+  fi
+fi
+
+# -------------------------------------------------------------------- tcl
+if [[ " ${FERRAMENTAS[*]} " == *" tcl "* ]]; then
+  echo
+  echo "tcl/dirige_repl.exp — automação de REPL com Expect"
+  echo
+
+  if ! command -v expect >/dev/null; then
+    bad "expect ausente" "sudo apt-get install expect"
+  else
+    # O roteiro imprime o próprio placar e sai != 0 se qualquer interação
+    # falhar, então aqui basta executá-lo e olhar o código.
+    #
+    # A saída vai para arquivo, e NÃO para um pipe com head/tail: quando o
+    # pipe fecha antes do fim, o expect quebra com "error writing stdout: bad
+    # file number" e o erro não tem relação nenhuma com o teste. Já me custou
+    # uma depuração.
+    saida=$(mktemp)
+    if timeout 180 expect tcl/dirige_repl.exp todos >"$saida" 2>&1; then
+      placar=$(grep -oE '[0-9]+ passaram, [0-9]+ falharam' "$saida" | tail -1)
+      ok "${placar:-todas as interações passaram}"
+    else
+      bad "alguma interação falhou" "$(grep -E 'FALHA' "$saida" | head -4)"
+    fi
+    rm -f "$saida"
   fi
 fi
 
