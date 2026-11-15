@@ -1,0 +1,9 @@
+# Fim de linha LF em tudo, porque o repositorio e editado no Windows e
+# executado no Linux: um verifica.sh com CRLF falha no runner com erros que
+# nao mencionam CRLF em lugar nenhum.
+* text=auto eol=lf
+
+# Exceto PowerShell e AutoHotkey, que sao do mundo Windows e esperam CRLF.
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.ahk text eol=crlf
