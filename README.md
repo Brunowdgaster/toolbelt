@@ -8,9 +8,10 @@ bash verifica.sh          # todas as ferramentas, nas duas direções
 bash verifica.sh perl     # só essa
 ```
 
-> **Status:** 6 das 10 linguagens previstas. Perl, AWK, Lua, Raku, Tcl/Expect e
-> Nix estão completas e verificadas, com **33 testes**. Groovy, PowerShell,
-> AutoHotkey e VBA pendentes — ver [Roadmap](#roadmap).
+> **Status:** 9 das 10 linguagens previstas. Perl, AWK, Lua, Raku, Tcl/Expect,
+> Nix, Groovy, PowerShell e Bash estão completas e verificadas, com **42
+> testes**. Falta AutoHotkey — e o VBA tem uma ressalva, ver
+> [Roadmap](#roadmap).
 
 ## O princípio: nenhuma ferramenta é demonstração
 
@@ -25,6 +26,8 @@ delas corrigiram erros meus na primeira execução.
 | `raku/gramatica_fasm.raku` | Raku | parser do assembly do P01, verificado contra o desmontador em C | o P01 tem 7 implementações da VM e **nenhum parser independente** do `.fasm` |
 | `tcl/dirige_repl.exp` | Tcl/Expect | dirigir um REPL e conferir a resposta | os portes de OCaml e Lua foram testados por linha de comando, que **não testa o REPL** |
 | `nix/flake.nix` | Nix | os ambientes dos projetos, declarados | montei 25 toolchains à mão, e **nada disso estava declarado em lugar nenhum** |
+| `groovy/relatorio.groovy` | Groovy | a saída dos verificadores em JUnit XML | 61 verificações do portfólio são **texto**, e nenhum painel de CI sabe lê-las |
+| `pwsh/Audita-Repos.ps1` + `bash/audita-repos.sh` | PowerShell + Bash | cada repositório tem o mínimo? | os 5 repositórios **divergiram**, e a auditoria à mão é impossível de manter |
 
 ## `perl/lint_medicoes.pl` — o lint que a auditoria me fez falta
 
@@ -483,11 +486,139 @@ registry local, que aponta para outro commit. A consulta certa é pelo próprio
 flake (`nix eval .#devShells...nativeBuildInputs`), e a tabela acima foi
 refeita assim.
 
-## A suíte: 29 testes, nas duas direções
+## `groovy/relatorio.groovy` — texto legível por humano, invisível para CI
+
+Todo verificador deste portfólio emite texto:
+
+```
+ok    fixture limpo: 0 achados
+FALHA o shell p03 não resolve
+```
+
+É legível por humano e **invisível para CI**. O GitHub Actions e o Jenkins sabem
+ler **JUnit XML** — e com ele mostram cada verificação como um teste, com nome e
+mensagem de falha, em vez de um log em que alguém tem de procurar.
+
+Os 42 testes do toolbelt, os 23 do P02 e os 9 dos portes do P01 passam a
+aparecer como **74 testes num relatório só**.
+
+```xml
+<testsuites tests="4" failures="1" name="toolbelt">
+  <testsuite name="ferramenta/exemplo.sh" tests="3" failures="1">
+    <testcase name="segunda verificação falha" classname="ferramenta/exemplo.sh">
+      <failure message="esperado '5', obtido '3' | e uma segunda linha de detalhe"/>
+    </testcase>
+  </testsuite>
+</testsuites>
+```
+
+### Por que em Groovy
+
+Porque o trabalho é **ler um formato e emitir outro**, e as duas pontas são o
+terreno dos *builders*: o `MarkupBuilder` escreve XML com a forma do XML, sem
+concatenar string nem escapar `&` à mão. E a JVM é onde o JUnit XML nasceu,
+então o formato não precisa ser adivinhado.
+
+É literalmente o papel que Groovy tem no Jenkins: a cola entre uma ferramenta
+que produz texto e um painel que espera estrutura.
+
+### Três decisões que o teste trava
+
+**Grupo vazio não vira `<testsuite>`.** O banner do verificador tem travessão e
+é reconhecido como cabeçalho, mas não tem caso embaixo. Uma suíte com zero
+testes é ruído no painel, e em alguns deles conta como "sem resultado", o que
+parece problema.
+
+**O detalhe multilinha chega na mensagem.** Perder o detalhe transforma o
+relatório em "falhou, descubra por quê".
+
+**Entrada sem nenhum caso reconhecido falha alto.** Um XML vazio e verde é o
+pior resultado possível: **ele parece sucesso**. A ferramenta sai com 65 e diz
+qual formato esperava.
+
+## O par POSIX↔Windows: as duas culturas, lado a lado
+
+O plano pede "o mesmo script, duas culturas". `pwsh/Audita-Repos.ps1` e
+`bash/audita-repos.sh` auditam os repositórios do portfólio — README, LICENSE,
+`.gitattributes`, CI, `.gitignore` — e **o teste exige que as duas concordem**,
+repositório por repositório.
+
+Testar cada uma isolada provaria que as duas rodam, não que fazem o mesmo
+trabalho.
+
+### A diferença não é sintaxe, é o que a linguagem considera um valor
+
+| | Bash | PowerShell |
+|---|---|---|
+| saída de comando | texto | **objeto com campos** |
+| estruturar | escolher separador e esperar que não apareça nos dados | `Select-Object`, campos nomeados |
+| emitir JSON | **12 linhas** de função de escape | `ConvertTo-Json`, uma linha |
+| lista de registros | três arrays paralelos, alinhados por disciplina | lista de hashtables |
+| código de saída de um comando | `$?`, direto | `$LASTEXITCODE`, e `$?` significa outra coisa |
+
+As quatro primeiras favorecem o PowerShell; **a última favorece o Bash**, e é
+por isso que os dois existem aqui: comparação honesta tem as duas direções.
+
+Os casos concretos estão no código, não na tabela:
+
+* a função `json_escapa` do Bash tem 12 linhas e trata barra, aspas e controle
+  — a barra invertida primeiro, senão ela escapa o que vem depois. No par em
+  PowerShell é `ConvertTo-Json -Depth 4`;
+* os itens verificados são **três arrays paralelos** em Bash, com um
+  guarda-corpo que aborta se eles desalinharem, porque desalinhá-los é um bug
+  que nada detecta. Em PowerShell são hashtables com campos nomeados;
+* e no PowerShell, `$?` depois de chamar `git` indica se o PowerShell
+  **conseguiu invocar** o comando, não o código que ele devolveu. Confundir os
+  dois é o erro clássico de quem vem do shell POSIX, e ele é silencioso.
+
+### E a comparação só roda no shell do Nix
+
+O `pwsh` não está instalado no WSL desta máquina — ele vem do
+`nix/flake.nix`. Então a verificação de que as duas implementações concordam
+roda **dentro do ambiente declarado**:
+
+```
+$ nix develop .#p12 --command bash -c 'cd .. && bash verifica.sh par'
+  ok    o JSON do Bash é válido (escapado à mão, 12 linhas de função)
+  ok    Bash e PowerShell concordam, repositório por repositório
+  ok    --listar diz por que cada item é obrigatório
+```
+
+É o flake servindo para algo concreto, e não só como declaração: **ele é o que
+torna o teste do par possível nesta máquina.**
+
+### A ferramenta achou uma lacuna no primeiro uso
+
+```
+repo               completo   publicado   faltando
+----------------------------------------------------------------------
+p01-metal-vm       sim        sim
+p02-forge-lang     sim        sim
+p03-otp-mesh       sim        sim
+p12-toolbelt       sim        sim
+poliglota          NAO        sim         .github/workflows
+```
+
+O repositório de índice do portfólio **não tinha CI**. Era documentação, então
+parecia não ter o que verificar — e tinha duas coisas:
+
+1. os números publicados ali têm dispersão ou método ao lado?
+2. a contagem de linguagens declarada confere com o `ROADMAP`?
+
+O CI foi acrescentado, clonando este toolbelt para rodar as duas verificações.
+E a primeira execução do lint sobre o índice **achou dois números defasados**:
+o `CONTEXTO.md` ainda carregava `1.400x` (ETS) e `254x` (`off_heap`), que são
+os valores **pré-auditoria** — eu corrigi o README do P03 para ~912x e ~66x e
+esqueci o índice.
+
+Número publicado sem dispersão ao lado é número que ninguém revisita.
+
+## A suíte: 42 testes, nas duas direções
 
 Cada ferramenta é testada **nas duas direções**: tem de achar o que deve achar
-(fixture sujo) e ficar calada no que está certo (fixture limpo). São **29
-verificações** no total.
+(fixture sujo) e ficar calada no que está certo (fixture limpo). São **42
+verificações**, mais uma que **só roda dentro do shell do Nix** — a comparação
+entre o par Bash e PowerShell, porque o `pwsh` vem de lá.
 
 Testar só uma direção é o erro clássico em ferramenta de análise: um lint
 testado só contra código ruim passa mesmo se acusar tudo, e um testado só
@@ -527,7 +658,5 @@ canalizar**.
 
 | linguagem | ferramenta prevista | terreno |
 |---|---|---|
-| **Groovy** | pipeline declarativo | Jenkins e Gradle de verdade |
-| **PowerShell** | o par POSIX↔Windows do mesmo trabalho | duas culturas, um problema |
-| **AutoHotkey** | automação de desktop | desprezado e extremamente empregável |
-| **VBA** | automação de planilha | idem — com a ressalva de exigir Office |
+| **AutoHotkey** | automação de desktop | desprezado e extremamente empregável; é Windows, e dá para verificar a sintaxe |
+| **VBA** | automação de planilha | **ressalva honesta:** exige Office instalado, e eu não verifiquei que existe nesta máquina |

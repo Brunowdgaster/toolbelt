@@ -1,0 +1,15 @@
+==============================================================
+  toolbelt — ferramentas de higiene do portfólio
+==============================================================
+
+ferramenta/exemplo.sh — um grupo com falha de propósito
+
+  ok    primeira verificação passa
+  FALHA segunda verificação falha
+        esperado '5', obtido '3'
+        e uma segunda linha de detalhe
+  ok    terceira passa
+
+outra/ferramenta.sh — grupo sem falha
+
+  ok    tudo certo aqui

@@ -36,7 +36,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")"
 
-FERRAMENTAS=(perl awk lua raku tcl nix)
+FERRAMENTAS=(perl awk lua raku tcl nix groovy par)
 [ $# -gt 0 ] && FERRAMENTAS=("$@")
 
 passou=0
@@ -90,7 +90,7 @@ if [[ " ${FERRAMENTAS[*]} " == *" perl "* ]]; then
         awk '/^TOTAL/ { print $2 }'
     }
 
-    igual "fixture limpo: 0 achados (10 padrões legítimos)" "0" "$(total perl/t/limpo.md)"
+    igual "fixture limpo: 0 achados (11 padrões legítimos)" "0" "$(total perl/t/limpo.md)"
     igual "fixture sujo: 6 achados (6 defeitos)" "6" "$(total perl/t/sujo.md)"
 
     # Código de saída: a ferramenta serve de portão de CI, então o código tem
@@ -419,6 +419,137 @@ if [[ " ${FERRAMENTAS[*]} " == *" nix "* ]]; then
       else
         echo "        (construção não testada; use NIX_CONSTROI=1 — baixa ~575 MiB)"
       fi
+    fi
+  fi
+fi
+
+# ----------------------------------------------------------------- groovy
+if [[ " ${FERRAMENTAS[*]} " == *" groovy "* ]]; then
+  echo
+  echo "groovy/relatorio.groovy — saída dos verificadores em JUnit XML"
+  echo
+
+  if ! command -v groovy >/dev/null; then
+    bad "groovy ausente" "sudo apt-get install groovy"
+  else
+    # O XML gerado tem de ser PARSEÁVEL. Um relatório que o painel de CI
+    # recusa é pior que nenhum: ele aparece como erro de infraestrutura, não
+    # como teste falhando.
+    xml=$(groovy groovy/relatorio.groovy groovy/t/com_falha.txt 2>/dev/null)
+
+    if python3 -c "
+import sys, xml.etree.ElementTree as ET
+ET.fromstring(sys.stdin.read())
+" <<<"$xml" 2>/dev/null; then
+      ok "o XML gerado é bem formado"
+    else
+      bad "o XML gerado não é parseável" "$(head -3 <<<"$xml")"
+    fi
+
+    # As contagens têm de bater com o fixture: 4 casos, 1 falha.
+    t=$(python3 -c "
+import sys, xml.etree.ElementTree as ET
+r = ET.fromstring(sys.stdin.read())
+print(r.get('tests'), r.get('failures'))
+" <<<"$xml" 2>/dev/null)
+    igual "contagens no raiz (4 testes, 1 falha)" "4 1" "$t"
+
+    # O detalhe da falha, que são DUAS linhas no fixture, tem de chegar na
+    # mensagem — perder o detalhe transforma o relatório em "falhou, descubra
+    # por quê".
+    if grep -q "obtido '3' | e uma segunda linha" <<<"$xml"; then
+      ok "o detalhe multilinha da falha chega no <failure>"
+    else
+      bad "o detalhe da falha foi perdido"
+    fi
+
+    # Grupo SEM casos (o banner do verificador) não vira <testsuite> vazia.
+    n_suites=$(grep -c '<testsuite ' <<<"$xml")
+    igual "grupos vazios não geram testsuite" "2" "$n_suites"
+
+    # Código de saída reflete o agregado, para servir de portão.
+    groovy groovy/relatorio.groovy groovy/t/com_falha.txt >/dev/null 2>&1
+    igual "sai 1 quando há falha" "1" "$?"
+
+    # Entrada sem nenhum caso reconhecido FALHA ALTO, em vez de emitir um XML
+    # vazio e verde — um relatório de zero testes passando parece sucesso.
+    printf 'texto qualquer\nsem verificacoes\n' > /tmp/toolbelt_vazio.txt
+    groovy groovy/relatorio.groovy /tmp/toolbelt_vazio.txt >/dev/null 2>&1
+    igual "sai != 0 em entrada sem verificações" "65" "$?"
+
+    # E a ponta a ponta: a saída REAL do verificador deste repositório.
+    bash verifica.sh perl awk > /tmp/toolbelt_real.txt 2>&1
+    real=$(groovy groovy/relatorio.groovy /tmp/toolbelt_real.txt 2>/dev/null)
+    if grep -q 'name="perl/lint_medicoes.pl"' <<<"$real"; then
+      ok "converte a saída real do verificador (nome curto no painel)"
+    else
+      bad "a saída real não foi convertida como esperado"
+    fi
+  fi
+fi
+
+# ------------------------------------------------------- par POSIX/Windows
+if [[ " ${FERRAMENTAS[*]} " == *" par "* ]]; then
+  echo
+  echo "bash/audita-repos.sh × pwsh/Audita-Repos.ps1 — o mesmo trabalho, duas culturas"
+  echo
+
+  RAIZ_REPOS="${RAIZ_REPOS:-..}"
+
+  if ! command -v bash >/dev/null; then
+    bad "bash ausente"
+  else
+    # O par só vale se as duas implementações CONCORDAREM. Testar cada uma
+    # isolada provaria que as duas rodam, não que fazem o mesmo trabalho.
+    saida_bash=$(bash bash/audita-repos.sh --json "$RAIZ_REPOS" 2>/dev/null)
+
+    if python3 -c "
+import sys, json
+json.loads(sys.stdin.read())
+" <<<"$saida_bash" 2>/dev/null; then
+      ok "o JSON do Bash é válido (escapado à mão, 12 linhas de função)"
+    else
+      bad "o JSON do Bash não parseia" "$(head -3 <<<"$saida_bash")"
+    fi
+
+    PWSH=$(command -v pwsh || true)
+
+    if [ -z "$PWSH" ]; then
+      echo "        (pwsh ausente; a comparação entre os dois pares não roda)"
+      echo "        instale com: nix develop .#p12   ou   apt-get install powershell"
+    else
+      saida_pwsh=$("$PWSH" -NoProfile -File pwsh/Audita-Repos.ps1 \
+        -Raiz "$RAIZ_REPOS" -Json 2>/dev/null)
+
+      # Compara os dois JSON normalizados: a ordem das chaves e o espaçamento
+      # diferem entre as linguagens, e comparar texto cru acusaria uma
+      # divergência que não existe.
+      norm() {
+        python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+if isinstance(d, dict): d = [d]
+print(json.dumps(sorted(d, key=lambda r: r['Repo']), sort_keys=True))
+"
+      }
+
+      a=$(norm <<<"$saida_bash" 2>/dev/null)
+      b=$(norm <<<"$saida_pwsh" 2>/dev/null)
+
+      if [ -n "$a" ] && [ "$a" = "$b" ]; then
+        ok "Bash e PowerShell concordam, repositório por repositório"
+      else
+        bad "as duas implementações divergiram" \
+            "$(diff <(echo "$a" | tr ',' '\n') <(echo "$b" | tr ',' '\n') | head -6)"
+      fi
+    fi
+
+    # O --listar explica POR QUE cada item é obrigatório. Um checklist sem o
+    # motivo vira cerimônia e alguém o apaga na primeira vez que incomoda.
+    if bash bash/audita-repos.sh --listar 2>/dev/null | grep -q 'porque:'; then
+      ok "--listar diz por que cada item é obrigatório"
+    else
+      bad "--listar não explica os itens"
     fi
   fi
 fi

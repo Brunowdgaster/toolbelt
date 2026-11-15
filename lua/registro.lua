@@ -89,6 +89,9 @@ return {
         "Raku", -- gramatica_fasm.raku: 9/9 contra o desmontador em C
         "Tcl",  -- dirige_repl.exp: 12 interacoes com REPL de verdade
         "Nix",  -- flake.nix: 4 devShells, versao escolhida por motivo medido
+        "Groovy", -- relatorio.groovy: saida dos verificadores em JUnit XML
+        "PowerShell", -- Audita-Repos.ps1, com par em bash: as duas concordam
+        "Bash", -- bash/audita-repos.sh: o par POSIX do PowerShell
       },
     },
 

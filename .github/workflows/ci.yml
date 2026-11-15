@@ -25,7 +25,7 @@ jobs:
           # perl e gawk ja vem na imagem; lua5.4 nao.
           # ocaml entra porque o roteiro do Expect dirige o toplevel dele.
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            lua5.4 rakudo expect ocaml
+            lua5.4 rakudo expect ocaml groovy
           perl -e 'print "perl $]\n"'
           awk 'BEGIN { print "awk", PROCINFO["version"] }'
           lua5.4 -e 'print(_VERSION)'
@@ -43,11 +43,15 @@ jobs:
           (cd /tmp/p01 && bash build.sh)
           /tmp/p01/build-switch/fvm version
 
-      - name: suite (29 verificacoes, sem nix)
+      - name: suite (sem nix)
         env:
           P01: /tmp/p01
         # O bloco do nix e separado abaixo, com a instalacao propria dele.
-        run: bash verifica.sh perl awk lua raku tcl
+        #
+        # `par` tambem fica fora: a comparacao Bash x PowerShell exige pwsh, e
+        # o runner nao tem. Ela roda no shell do Nix, onde o powershell vem
+        # declarado -- e e la que foi verificada que as duas concordam.
+        run: bash verifica.sh perl awk lua raku tcl groovy
 
   # O Nix num job proprio: ele precisa de instalacao dedicada (nao esta na
   # imagem do runner) e as verificacoes dele nao dependem do p01.

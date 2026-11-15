@@ -212,8 +212,22 @@ for my $arq (@arquivos) {
         # Blocos de código são saída de programa, não afirmação do autor.
         next if dentro_de_bloco(\@linhas, $i);
 
-        next if $linha =~ $DISPENSA;
-        next if $i > 0 && $linhas[$i - 1] =~ $DISPENSA;
+        # A dispensa vale para o PARÁGRAFO, não só para a linha.
+        #
+        # A primeira versão olhava a linha e a anterior. Mas o lint raciocina
+        # em parágrafos (ver `paragrafo` abaixo), e texto em Markdown quebra a
+        # linha onde cabe, não onde o sentido termina: uma dispensa escrita
+        # antes de um parágrafo de seis linhas não cobria a linha 4, onde o
+        # número estava.
+        #
+        # As duas granularidades agora batem. O risco é uma dispensa silenciar
+        # mais do que o autor queria — aceitável, porque ele ESCREVEU o
+        # comentário. O que não é aceitável é silenciar por omissão.
+        my $ini_p = ini_paragrafo(\@linhas, $i);
+        my @ctx_dispensa = paragrafo(\@linhas, $i);
+        push @ctx_dispensa, $linhas[$ini_p - 1] if $ini_p > 0;
+
+        next if grep { $_ =~ $DISPENSA } @ctx_dispensa;
 
         # Código INLINE sai antes da busca.
         #
@@ -263,6 +277,22 @@ for my $arq (@arquivos) {
         printf "        -> %s, sem marcador de metodo por perto\n",
           join(', ', @{ $a->{medicoes} });
     }
+}
+
+# Índice da primeira linha do parágrafo que contém i.
+#
+# Usado para achar a linha IMEDIATAMENTE ANTES do parágrafo, que é onde uma
+# dispensa naturalmente fica. É `sub` nomeada, e não `my $f = sub {}`, porque a
+# chamada acontece no laço principal, ACIMA desta definição -- um lexical
+# declarado aqui não estaria visível lá, e o erro seria "Can't use an undefined
+# value as a subroutine reference" em tempo de execução.
+sub ini_paragrafo {
+    my ($linhas, $i) = @_;
+    my $ini = $i;
+    $ini-- while $ini > 0
+      && $linhas->[$ini - 1] =~ /\S/
+      && $linhas->[$ini - 1] !~ /^\s*#/;
+    return $ini;
 }
 
 # O parágrafo que contém a linha i: as linhas contíguas não vazias em volta,

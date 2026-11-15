@@ -62,3 +62,10 @@ de 35. O arquivo tem 84 MB e a imagem 8,63 MB.
 
 O montador usa `strtoll(s, &end, 0)`, que aceita `0x..` e `0..`.
 O desmontador emite `%-8s` para o mnemonico e `" %d"` por operando.
+
+## Dispensa antes de um PARAGRAFO cobre o paragrafo inteiro
+
+<!-- lint-medicao: ignorar — prosa de plano, nenhum numero medido aqui -->
+Este paragrafo tem varias linhas, e o numero de 250 ms aparece na terceira
+delas, longe da dispensa. Markdown quebra a linha onde cabe, nao onde o
+sentido termina, e a dispensa tem de valer para o bloco todo.
