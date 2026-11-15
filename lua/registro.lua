@@ -75,7 +75,19 @@ return {
     P07 = { nome = "engine",        itens_no_plano = 7,  planejadas = 6,  feitas = {} },
     P08 = { nome = "tri-mobile",    itens_no_plano = 5,  planejadas = 5,  feitas = {} },
     P09 = { nome = "silicon",       itens_no_plano = 10, planejadas = 8,  feitas = {} },
-    P10 = { nome = "query-lab",     itens_no_plano = 8,  planejadas = 8,  feitas = {} },
+    P10 = {
+      nome = "query-lab",
+      itens_no_plano = 8,
+      planejadas = 8,
+      feitas = {
+        "Python",   -- referencia.py: o BFS sem magica que as outras 7 conferem
+        "SQL",      -- alcance.sql: o MESMO arquivo em SQLite e PostgreSQL
+        "PL/pgSQL", -- transferir.sql: atomicidade, e a classe QL de ERRCODE
+      },
+      -- Faltam Cypher, SPARQL e GraphQL (baratos), e T-SQL e PL/SQL, que
+      -- exigem imagens de 1,5 GB e 2,5 GB. A suite ja esta preparada para
+      -- pular os dois, e QLAB_EXIGE=1 recusa pular no CI.
+    },
     P11 = { nome = "chain",         itens_no_plano = 6,  planejadas = 6,  feitas = {} },
 
     P12 = {
