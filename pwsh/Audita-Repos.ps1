@@ -115,9 +115,12 @@ if (-not (Test-Path -LiteralPath $Raiz -PathType Container)) {
 
 # Um repositório é uma pasta com `.git`. Não basta ser pasta: a raiz do
 # portfólio tem pastas de apoio.
-$repos = Get-ChildItem -LiteralPath $Raiz -Directory |
+# `@( ... )` aqui pelo MESMO motivo do `$resultado` abaixo: com um repositorio
+# so, o pipeline devolve o objeto e nao um array, e `$repos.Count` lanca sob
+# StrictMode. Cada `.Count` neste arquivo tem a fonte envolvida em `@()`.
+$repos = @(Get-ChildItem -LiteralPath $Raiz -Directory |
     Where-Object { Test-Path (Join-Path $_.FullName '.git') } |
-    Sort-Object Name
+    Sort-Object Name)
 
 if ($repos.Count -eq 0) {
     Write-Error "nenhum repositorio git encontrado em $Raiz"
@@ -130,7 +133,21 @@ if ($repos.Count -eq 0) {
 # torna `-Json`, a ordenação e o filtro abaixo triviais -- e é a diferença
 # central em relação ao par em Bash.
 
-$resultado = foreach ($repo in $repos) {
+# `@( ... )` em volta do laço É NECESSÁRIO, e a falta dele passou local e
+# quebrou no CI.
+#
+# Em PowerShell, um pipeline que produz UM objeto devolve o objeto, não um
+# array de um elemento -- e sob `Set-StrictMode`, `.Count` nesse objeto lança
+# "The property 'Count' cannot be found on this object".
+#
+# Local havia 5 repositórios e o laço devolvia array; no runner o repositório
+# está sozinho e devolveu um objeto só. É o caso de borda clássico do
+# PowerShell, e é a terceira fricção que este par expôs -- as duas primeiras
+# foram `Join-Path` de três argumentos e o BOM que o 5.1 exige.
+#
+# No par em Bash isso não existe: array é explícito, e um elemento é um array
+# de um elemento.
+$resultado = @(foreach ($repo in $repos) {
     $faltando = [System.Collections.Generic.List[string]]::new()
 
     foreach ($item in $Itens) {
@@ -144,20 +161,41 @@ $resultado = foreach ($repo in $repos) {
 
     # Tem remoto? Um repositório local sem remoto não está publicado, e isso
     # não é falha -- é estado. A auditoria reporta, não julga.
+    #
+    # ## Chamar um programa externo em PowerShell tem TRÊS camadas
+    #
+    # Esta é a terceira fricção que este par expôs, e a que mais favorece o
+    # Bash:
+    #
+    #   1. `$?` indica se o PowerShell conseguiu INVOCAR o comando, não o
+    #      código que ele devolveu. Confundir os dois é o erro clássico de quem
+    #      vem do POSIX, e é silencioso;
+    #   2. o código de verdade está em `$LASTEXITCODE`;
+    #   3. e com `$ErrorActionPreference = 'Stop'`, o que o programa escreve em
+    #      STDERR vira erro TERMINANTE -- então um `git remote` num diretório
+    #      com `.git` inválido (repositório corrompido, submódulo, arquivo
+    #      `.git` de worktree) aborta a auditoria inteira.
+    #
+    # A terceira camada apareceu num teste com um `.git` falso, e é por isso
+    # que o `$ErrorActionPreference` é rebaixado só em volta da chamada nativa.
+    #
+    # Em Bash as três colapsam em `if git -C "$repo" remote >/dev/null 2>&1`.
     $temRemoto = $false
+
+    $eapAnterior = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+
     try {
-        Push-Location $repo.FullName
-        $null = & git remote 2>$null
-        # `$LASTEXITCODE` e NAO `$?`: para executaveis externos, `$?` indica se
-        # o PowerShell conseguiu INVOCAR o comando, nao o codigo que ele
-        # devolveu. Confundir os dois e o erro classico de quem vem do shell
-        # POSIX, e ele e silencioso.
+        $saidaGit = & git -C $repo.FullName remote 2>&1
         if ($LASTEXITCODE -eq 0) {
-            $temRemoto = [bool](& git remote)
+            $temRemoto = [bool](@($saidaGit | Where-Object { $_ -and "$_".Trim() }).Count)
         }
     }
+    catch {
+        $temRemoto = $false
+    }
     finally {
-        Pop-Location
+        $ErrorActionPreference = $eapAnterior
     }
 
     [PSCustomObject]@{
@@ -166,7 +204,7 @@ $resultado = foreach ($repo in $repos) {
         Faltando  = $faltando.ToArray()
         Publicado = $temRemoto
     }
-}
+})
 
 # --------------------------------------------------------------------- relatório
 
@@ -194,8 +232,8 @@ else {
     $incompletos = @($resultado | Where-Object { -not $_.Completo })
 
     Write-Output ('{0} repositorio(s), {1} completo(s), {2} incompleto(s)' -f
-        $resultado.Count,
-        ($resultado.Count - $incompletos.Count),
+        @($resultado).Count,
+        (@($resultado).Count - $incompletos.Count),
         $incompletos.Count)
 
     if ($incompletos.Count -gt 0) {

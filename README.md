@@ -707,10 +707,9 @@ que declarar a separação.
 cada uma verificada na sua. No CI são dois jobs, um em `ubuntu-latest` e um em
 `windows-latest`.
 
-### Duas incompatibilidades reais com o Windows PowerShell 5.1
+### Três fricções reais, e a terceira só o CI podia achar
 
-O par expôs duas fricções que só aparecem na versão antiga, que é a que vem
-instalada no Windows:
+O par expôs três diferenças que não aparecem em tabela comparativa nenhuma:
 
 **`Join-Path a b c` é só PowerShell 7+.** A forma de três argumentos
 (`-AdditionalChildPath`) falha no 5.1 com `PositionalParameterNotFound` — e
@@ -720,6 +719,31 @@ o parâmetro *não* é passado. A correção é `Join-Path` aninhado.
 **O 5.1 lê script UTF-8 sem BOM como ANSI.** Os acentos saíam como `â€”` e
 `mediÃ§Ã£o`. Os `.ps1` deste repositório são gravados **com BOM**, que é o que
 o 5.1 exige.
+
+**Um pipeline que produz UM objeto não é um array.** Sob `Set-StrictMode`,
+`.Count` nesse objeto lança *"The property 'Count' cannot be found"*.
+
+Essa terceira **só o CI podia achar**: localmente há 5 repositórios e o laço
+devolvia array; no runner o repositório está sozinho, e devolveu um objeto só.
+A correção é envolver cada fonte de `.Count` em `@( ... )`.
+
+No par em Bash isso não existe — array é explícito, e um elemento é um array de
+um elemento.
+
+### E chamar um programa externo tem três camadas
+
+Esta é a que mais favorece o Bash, e ela cresceu durante o desenvolvimento:
+
+1. `$?` indica se o PowerShell conseguiu **invocar** o comando, não o código
+   que ele devolveu — e é silencioso;
+2. o código de verdade está em `$LASTEXITCODE`;
+3. e com `$ErrorActionPreference = 'Stop'`, o que o programa escreve em
+   **stderr** vira erro **terminante** — então um `git remote` num diretório com
+   `.git` inválido (repositório corrompido, submódulo, arquivo `.git` de
+   worktree) **aborta a auditoria inteira**.
+
+A terceira camada apareceu num teste com um `.git` falso. Em Bash as três
+colapsam em `if git -C "$repo" remote >/dev/null 2>&1`.
 
 E o contraste que isso cria é o detalhe favorito desta seção:
 
