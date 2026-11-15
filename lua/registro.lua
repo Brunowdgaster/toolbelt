@@ -83,10 +83,13 @@ return {
         "Python",   -- referencia.py: o BFS sem magica que as outras 7 conferem
         "SQL",      -- alcance.sql: o MESMO arquivo em SQLite e PostgreSQL
         "PL/pgSQL", -- transferir.sql: atomicidade, e a classe QL de ERRCODE
+        "Cypher",   -- alcance.cypher: travessia como primitiva, em Kuzu
+        "SPARQL",   -- alcance.rq: o padrao NAO limita repeticao, e a inferencia
+        "GraphQL",  -- esquema.graphql: o que o modelo NAO expressa, medido
       },
-      -- Faltam Cypher, SPARQL e GraphQL (baratos), e T-SQL e PL/SQL, que
-      -- exigem imagens de 1,5 GB e 2,5 GB. A suite ja esta preparada para
-      -- pular os dois, e QLAB_EXIGE=1 recusa pular no CI.
+      -- Faltam T-SQL e PL/SQL, que exigem imagens de 1,5 GB e 2,5 GB. A suite
+      -- ja esta preparada para pular os dois, e QLAB_EXIGE=1 recusa pular no
+      -- CI.
     },
     P11 = { nome = "chain",         itens_no_plano = 6,  planejadas = 6,  feitas = {} },
 
