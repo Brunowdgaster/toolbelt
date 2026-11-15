@@ -1,0 +1,17 @@
+# Dados reais da medicao de contadores do p03-otp-mesh:
+# AtomicLong da JVM contra :counters da BEAM, 7 repeticoes alternadas.
+# As faixas nao se tocam -- este fixture existe para travar a regra de nivel 1.
+atomiclong 29718354
+counters   48152161
+atomiclong 40735479
+counters   116042936
+atomiclong 12516183
+counters   105869119
+atomiclong 13714499
+counters   91038407
+atomiclong 12856015
+counters   99987502
+atomiclong 12375528
+counters   112954465
+atomiclong 29861465
+counters   120918984

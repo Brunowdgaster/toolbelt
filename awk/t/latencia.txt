@@ -1,0 +1,16 @@
+# Latencia sem carga, p03-otp-mesh: processo BEAM contra thread virtual.
+# MENOR e melhor. Faixas disjuntas: 2-6 us contra 72-371 us.
+beam 2
+loom 173
+beam 4
+loom 371
+beam 6
+loom 341
+beam 2
+loom 330
+beam 4
+loom 72
+beam 2
+loom 184
+beam 2
+loom 137

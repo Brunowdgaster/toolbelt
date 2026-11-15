@@ -1,0 +1,13 @@
+
+proj   nome       feitas/plan      pct progresso
+--------------------------------------------------------------
+PA     alfa            2/3         67% ###########.....
+PB     beta            3/4         75% ############....
+PC     gama            0/2          0% ................
+--------------------------------------------------------------
+TOTAL                  5/9         56% #########.......
+
+linguagens DISTINTAS: 4   (a soma por projeto da 5)
+  sobreposicao em 1: Zig (PA, PB)
+
+meta: 10 linguagens. Faltam 6.

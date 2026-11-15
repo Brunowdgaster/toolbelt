@@ -1,0 +1,12 @@
+amostras: 14 em 2 rotulo(s)   criterio: MENOR e melhor (latencia)
+
+rotulo               n         melhor           pior       disp        media
+----------------------------------------------------------------------------
+beam                 7              2              6     200.0%          3.1
+loom                 7             72            371     415.3%        229.7
+
+razao dos melhores : 0.028x   margem: 97.2%   pior dispersao: 415.3%
+
+DECIDIDO: beam e melhor, e as faixas NAO SE TOCAM.
+  A pior amostra dele (6) e menor que a melhor do outro (72).
+  Fator conservador: 12.00x

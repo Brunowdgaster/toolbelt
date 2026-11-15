@@ -1,0 +1,12 @@
+amostras: 14 em 2 rotulo(s)   criterio: MAIOR e melhor (vazao)
+
+rotulo               n         melhor           pior       disp        media
+----------------------------------------------------------------------------
+atomiclong           7       40735479       12375528     229.2%   21682503.3
+counters             7      120918984       48152161     151.1%   99280510.6
+
+razao dos melhores : 0.337x   margem: 66.3%   pior dispersao: 229.2%
+
+DECIDIDO: counters e melhor, e as faixas NAO SE TOCAM.
+  A pior amostra dele (48152161) supera a melhor do outro (40735479).
+  Fator conservador: 1.18x

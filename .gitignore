@@ -1,0 +1,5 @@
+# Nada a ignorar ainda: as ferramentas sao interpretadas, sem artefato de
+# build. Fica declarado para quando Groovy (classes) e Nix (result/) entrarem.
+*.class
+result
+result-*

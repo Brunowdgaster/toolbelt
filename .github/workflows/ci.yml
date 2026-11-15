@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # As ferramentas sao testadas nas DUAS direcoes: tem de achar o que devem
+  # achar (fixture sujo) e ficar caladas no que esta certo (fixture limpo).
+  #
+  # Nada aqui depende de tempo de maquina, so de saida exata -- por isso roda
+  # inteiro no runner, diferente dos jobs de benchmark dos outros projetos.
+  ferramentas:
+    runs-on: ubuntu-latest
+    name: ferramentas (Perl, AWK, Lua)
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: toolchains
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          # perl e gawk ja vem na imagem; lua5.4 nao.
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq lua5.4
+          perl -e 'print "perl $]\n"'
+          awk 'BEGIN { print "awk", PROCINFO["version"] }'
+          lua5.4 -e 'print(_VERSION)'
+
+      - name: suite (22 verificacoes)
+        run: bash verifica.sh
+
+      # O lint rodando sobre os READMEs deste repositorio: ele tem de passar
+      # nos proprios textos. Orcamento 0 -- se um numero sem dispersao entrar
+      # aqui, o CI acusa.
+      - name: o lint passa no proprio README
+        run: perl perl/lint_medicoes.pl README.md
