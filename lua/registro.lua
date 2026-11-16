@@ -132,8 +132,18 @@ return {
         "LibreOffice Basic", -- Cobertura.bas: a cobertura como planilha com =SUM() de verdade
       },
     },
-
-    P13 = { nome = "legacy",        itens_no_plano = 9,  planejadas = 9,  feitas = {} },
+    P13 = {
+      nome = "legacy",
+      itens_no_plano = 9,
+      planejadas = 9,
+      feitas = {
+        "COBOL",  -- juros.cob: o lote original, e a especificacao executavel
+        "VB.NET", -- Juros.vb: a ponte que as empresas de fato usaram
+      },
+      -- C# e SQL ja contam em outros projetos; o cobertura.lua desconta a
+      -- sobreposicao. Faltam Object Pascal, PL/I, RPG, ABAP e Apex -- os tres
+      -- ultimos exigem conta gratuita (PUB400, SAP BTP, Salesforce).
+    },
     P14 = {
       nome = "first-code",
       itens_no_plano = 5,
