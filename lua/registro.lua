@@ -70,7 +70,20 @@ return {
     },
 
     P04 = { nome = "webstack",      itens_no_plano = 12, planejadas = 10, feitas = {} },
-    P05 = { nome = "datalab",       itens_no_plano = 11, planejadas = 10, feitas = {} },
+    P05 = {
+      nome = "datalab",
+      itens_no_plano = 11,
+      planejadas = 10,
+      feitas = {
+        "Fortran", -- modelo.f90: os DOIS algoritmos, a mao, no mesmo arquivo
+        "R",       -- modelo.R: a formula como objeto de primeira classe
+        "Octave",  -- modelo.m: algebra linear como sintaxe (dialeto MATLAB)
+        "hansl",   -- modelo.inp: no lugar do Stata, que e pago
+      },
+      -- Python, SQL e Cypher/SPARQL ja contam em outros projetos; aqui o
+      -- cobertura.lua desconta a sobreposicao. Faltam Julia (nao esta no
+      -- apt), Scala/Spark, Mojo, Wolfram e SAS.
+    },
     P06 = { nome = "gpu-arena",     itens_no_plano = 9,  planejadas = 8,  feitas = {} },
     P07 = { nome = "engine",        itens_no_plano = 7,  planejadas = 6,  feitas = {} },
     P08 = { nome = "tri-mobile",    itens_no_plano = 5,  planejadas = 5,  feitas = {} },
