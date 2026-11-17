@@ -138,11 +138,16 @@ return {
       planejadas = 9,
       feitas = {
         "COBOL",  -- juros.cob: o lote original, e a especificacao executavel
+        "C#",     -- Juros.cs: com decimal, identico ao COBOL byte a byte
         "VB.NET", -- Juros.vb: a ponte que as empresas de fato usaram
       },
-      -- C# e SQL ja contam em outros projetos; o cobertura.lua desconta a
-      -- sobreposicao. Faltam Object Pascal, PL/I, RPG, ABAP e Apex -- os tres
-      -- ultimos exigem conta gratuita (PUB400, SAP BTP, Salesforce).
+      -- O SQL ja conta no P10 e o cobertura.lua desconta a sobreposicao. O C#
+      -- NAO: ele existe so aqui, e o comentario anterior afirmava o contrario.
+      -- Por isso a conta publicada dizia 45 linguagens distintas quando sao
+      -- 46 -- achado por auditoria do CONTEXTO.md em 2026-11-16. O README do
+      -- P13 sempre disse "3 das 9"; era este arquivo que estava errado.
+      -- Faltam Object Pascal, PL/I, RPG, ABAP e Apex -- os tres ultimos
+      -- exigem conta gratuita (PUB400, SAP BTP, Salesforce).
     },
     P14 = {
       nome = "first-code",
