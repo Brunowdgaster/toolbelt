@@ -68,8 +68,24 @@ return {
         "HCL",
       },
     },
-
-    P04 = { nome = "webstack",      itens_no_plano = 12, planejadas = 10, feitas = {} },
+    P04 = {
+      nome = "webstack",
+      itens_no_plano = 12,
+      planejadas = 12,
+      feitas = {
+        "JavaScript",   -- js/view.js: a referencia, sem transpilacao
+        "TypeScript",   -- ts/view.ts: e os 4 bugs que o tsc recusa, com codigo
+        "CoffeeScript", -- coffee/view.coffee: o arquivo arqueologico, que roda
+        "PHP",          -- php/view.php: o legado, com strangler-fig
+        "Ruby",         -- ruby/view.rb: o painel administrativo
+        "HTML",         -- dados/esperado/view.html: o alvo que todos acertam
+        "CSS",          -- css/orcamento.css: artefato gerado e verificado
+        "Sass",         -- sass/orcamento.scss: e a decisao de que nao se paga
+      },
+      -- O GraphQL ja conta no P10 e o cobertura.lua desconta a sobreposicao.
+      -- Faltam Elm, PureScript e Dart -- as tres vias que o entregavel do
+      -- plano exige para a tabela de bundle size e erros em runtime.
+    },
     P05 = {
       nome = "datalab",
       itens_no_plano = 11,
