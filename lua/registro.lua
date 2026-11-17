@@ -39,7 +39,18 @@ return {
         "D",     -- porte, SumType exaustivo, 9/9
         "V",     -- porte, handle+arena imposto pelo tipo-soma, 9/9
         "Ada",   -- porte, subtipos restritos, 9/9
+        "C++",   -- porte, shared_ptr (NAO coleta ciclo, ao contrario do ORC), 9/9
+        "Zig",   -- porte, alocador na assinatura e comptime na tabela, 9/9
+        "Assembly x86-64", -- ports/asm: o SUBCONJUNTO, sem libc, 4/4
       },
+      -- Faltam Assembly ARM64 e RISC-V (as toolchains de cross e o qemu-user
+      -- estao instalados; so o .s de cada um nao existe ainda), e os tres
+      -- itens de build do plano: Makefile, CMake, Nix.
+      --
+      -- Os portes em Assembly sao um SUBCONJUNTO declarado -- pilha,
+      -- aritmetica, saltos, locais, PRINT -- com suite propria, porque o
+      -- plano pede "Assembly no dispatch loop com medicao" e opcodes de heap
+      -- mediriam o alocador.
     },
 
     P02 = {
