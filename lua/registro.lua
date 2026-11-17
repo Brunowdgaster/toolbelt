@@ -42,10 +42,12 @@ return {
         "C++",   -- porte, shared_ptr (NAO coleta ciclo, ao contrario do ORC), 9/9
         "Zig",   -- porte, alocador na assinatura e comptime na tabela, 9/9
         "Assembly x86-64", -- ports/asm: o SUBCONJUNTO, sem libc, 4/4
+        "Assembly ARM64",  -- idem, sob qemu-user: cset em vez de setcc+movzx
+        "Assembly RISC-V", -- idem: slt em UMA instrucao, e nenhum flag
       },
-      -- Faltam Assembly ARM64 e RISC-V (as toolchains de cross e o qemu-user
-      -- estao instalados; so o .s de cada um nao existe ainda), e os tres
-      -- itens de build do plano: Makefile, CMake, Nix.
+      -- As 12 linguagens do plano estao feitas. Faltam os tres itens de BUILD
+      -- (Makefile, CMake, Nix), que o itens_no_plano conta e que nao sao
+      -- linguagens de programacao.
       --
       -- Os portes em Assembly sao um SUBCONJUNTO declarado -- pilha,
       -- aritmetica, saltos, locais, PRINT -- com suite propria, porque o
