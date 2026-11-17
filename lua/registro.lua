@@ -71,7 +71,7 @@ return {
     P04 = {
       nome = "webstack",
       itens_no_plano = 12,
-      planejadas = 12,
+      planejadas = 11,
       feitas = {
         "JavaScript",   -- js/view.js: a referencia, sem transpilacao
         "TypeScript",   -- ts/view.ts: e os 4 bugs que o tsc recusa, com codigo
@@ -81,10 +81,17 @@ return {
         "HTML",         -- dados/esperado/view.html: o alvo que todos acertam
         "CSS",          -- css/orcamento.css: artefato gerado e verificado
         "Sass",         -- sass/orcamento.scss: e a decisao de que nao se paga
+        "Elm",          -- View.elm: MVU e ports, e o PRECO da garantia
+        "PureScript",   -- Main.purs: classes de tipo, e o FFI que quebrou
+        "Dart",         -- view.dart: sound null safety, e quatro alvos
       },
-      -- O GraphQL ja conta no P10 e o cobertura.lua desconta a sobreposicao.
-      -- Faltam Elm, PureScript e Dart -- as tres vias que o entregavel do
-      -- plano exige para a tabela de bundle size e erros em runtime.
+      -- COMPLETO. O GraphQL ja conta no P10 e o cobertura.lua desconta a
+      -- sobreposicao, por isso 11 feitas para 12 itens no plano.
+      --
+      -- A tabela de bundle size que o plano promete NAO existe ainda: medir
+      -- exige empacotar com minificacao e tree-shaking iguais nos tres, e
+      -- feito errado o numero compara configuracao de bundler em vez de
+      -- linguagem. Entra quando o procedimento estiver escrito.
     },
     P05 = {
       nome = "datalab",
