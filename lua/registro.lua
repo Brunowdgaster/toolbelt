@@ -140,6 +140,7 @@ return {
         "COBOL",  -- juros.cob: o lote original, e a especificacao executavel
         "C#",     -- Juros.cs: com decimal, identico ao COBOL byte a byte
         "VB.NET", -- Juros.vb: a ponte que as empresas de fato usaram
+        "Object Pascal", -- juros.pas: Currency bate, e o FPC avalia literal real em Single
       },
       -- O SQL ja conta no P10 e o cobertura.lua desconta a sobreposicao. O C#
       -- NAO: ele existe so aqui, e o comentario anterior afirmava o contrario.
