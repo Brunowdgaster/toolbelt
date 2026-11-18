@@ -144,9 +144,13 @@ return {
       -- (Oracle), MEDIDAS -- o registro antigo dizia 1,5 e 2,5, e o do Oracle
       -- errava por mais de cinco vezes.
       --
-      -- O CI roda o T-SQL e DISPENSA o PL/SQL: 13,8 GB nao cabem nos ~14 GB do
-      -- runner. A dispensa exige QL_SEM_ORACLE=1, imprime "dispensado" em vez
-      -- de "pulado", e contada separada, e o disco e medido no log.
+      -- O CI roda OS DOIS, o Oracle num job separado.
+      --
+      -- Eu havia dispensado o PL/SQL do CI dizendo que 13,8 GB "nao cabem nos
+      -- ~14 GB do runner". Acrescentei um passo que mede o disco para dar
+      -- evidencia a isso, e ele mediu 91 GB LIVRES -- refutando a afirmacao
+      -- que eu fui buscar nele. O job separado existe pelo tempo do download,
+      -- nao pelo espaco.
     },
     P11 = { nome = "chain",         itens_no_plano = 6,  planejadas = 6,  feitas = {} },
 
