@@ -217,10 +217,12 @@ return {
         "C#",     -- Juros.cs: com decimal, identico ao COBOL byte a byte
         "VB.NET", -- Juros.vb: a ponte que as empresas de fato usaram
         "Object Pascal", -- juros.pas: Currency bate, e o FPC avalia literal real em Single
+        "SQL",           -- juros.sql: O MESMO arquivo em dois motores -- o
+                         -- PostgreSQL bate byte a byte com o COBOL e o SQLite
+                         -- erra 13 das 14 contas, porque la NUMERIC e
+                         -- AFINIDADE e nao tipo, e integer/integer trunca.
+                         -- Tambem conta no P10; o cobertura.lua desduplica.
       },
-      -- O SQL ainda NAO esta feito aqui (e um dos cinco que faltam); quando
-      -- estiver, entra LISTADO, como o Rust do P03 -- o cobertura.lua
-      -- desduplica com o P10.
       --
       -- O C# conta: ele existe so aqui, e um comentario antigo afirmava o
       -- contrario.
