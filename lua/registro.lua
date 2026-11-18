@@ -129,6 +129,10 @@ return {
         "Python",  -- referencia.py: a referencia com SVD; tambem conta no P10
         "SQL",     -- modelo.sql: equacoes normais por Cramer, e o achado de
                    -- que ate o AJUSTE erra 40%; tambem conta no P10
+        "Scala",   -- modelo.scala: os MESMOS dois algoritmos do Fortran, a
+                   -- mao e sem biblioteca -- e os numeros batem (1,4e-08 e
+                   -- 3,4e-03 nos dois), fechando o experimento: mesmo
+                   -- algoritmo em linguagens diferentes da o mesmo erro
       },
       -- Python e SQL estao LISTADOS, e nao omitidos, seguindo a convencao que
       -- o P03 usa para o Rust: o cobertura.lua desduplica, e o progresso por
