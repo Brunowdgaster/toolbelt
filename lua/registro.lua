@@ -129,6 +129,10 @@ return {
         "Python",  -- referencia.py: a referencia com SVD; tambem conta no P10
         "SQL",     -- modelo.sql: equacoes normais por Cramer, e o achado de
                    -- que ate o AJUSTE erra 40%; tambem conta no P10
+        "Mojo",    -- modelo.mojo: onde a tese do p05 PARA de valer -- mesmo
+                   -- algoritmo que Fortran e Scala, mesmo numero no caso bem
+                   -- (1,4e-14) e 3,5x pior no mal (1,2e-02), porque ali XtX e
+                   -- numericamente singular e o erro deixa de ser reprodutivel
         "Scala",   -- modelo.scala: os MESMOS dois algoritmos do Fortran, a
                    -- mao e sem biblioteca -- e os numeros batem (1,4e-08 e
                    -- 3,4e-03 nos dois), fechando o experimento: mesmo
