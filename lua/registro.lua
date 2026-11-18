@@ -135,10 +135,18 @@ return {
         "Cypher",   -- alcance.cypher: travessia como primitiva, em Kuzu
         "SPARQL",   -- alcance.rq: o padrao NAO limita repeticao, e a inferencia
         "GraphQL",  -- esquema.graphql: o que o modelo NAO expressa, medido
+        "T-SQL",    -- transferir.sql: um ROLLBACK aninhado DESTROI a transacao
+                    -- do chamador (medido); 11 casos
+        "PL/SQL",   -- transferir.sql: SELECT INTO e estrito por padrao, e todo
+                    -- DDL faz COMMIT (medido); 11 casos
       },
-      -- Faltam T-SQL e PL/SQL, que exigem imagens de 1,5 GB e 2,5 GB. A suite
-      -- ja esta preparada para pular os dois, e QLAB_EXIGE=1 recusa pular no
-      -- CI.
+      -- As 8 estao feitas. As imagens sao de 2,21 GB (SQL Server) e 13,8 GB
+      -- (Oracle), MEDIDAS -- o registro antigo dizia 1,5 e 2,5, e o do Oracle
+      -- errava por mais de cinco vezes.
+      --
+      -- O CI roda o T-SQL e DISPENSA o PL/SQL: 13,8 GB nao cabem nos ~14 GB do
+      -- runner. A dispensa exige QL_SEM_ORACLE=1, imprime "dispensado" em vez
+      -- de "pulado", e contada separada, e o disco e medido no log.
     },
     P11 = { nome = "chain",         itens_no_plano = 6,  planejadas = 6,  feitas = {} },
 
