@@ -84,7 +84,12 @@ return {
     P04 = {
       nome = "webstack",
       itens_no_plano = 12,
-      planejadas = 11,
+      -- 12, e nao 11: o `planejadas` dizia 11 porque o GraphQL era OMITIDO da
+      -- lista para nao contar duas vezes com o P10. Agora ele esta listado
+      -- (convencao do P03), e o numero acompanha -- senao a validacao do
+      -- cobertura.lua reclama de 12 feitas com 11 planejadas, que foi
+      -- exatamente o que aconteceu ao corrigir isto.
+      planejadas = 12,
       feitas = {
         "JavaScript",   -- js/view.js: a referencia, sem transpilacao
         "TypeScript",   -- ts/view.ts: e os 4 bugs que o tsc recusa, com codigo
@@ -97,9 +102,12 @@ return {
         "Elm",          -- View.elm: MVU e ports, e o PRECO da garantia
         "PureScript",   -- Main.purs: classes de tipo, e o FFI que quebrou
         "Dart",         -- view.dart: sound null safety, e quatro alvos
+        "GraphQL", -- esquema.graphql: o contrato de tipos; tambem conta no P10
       },
-      -- COMPLETO. O GraphQL ja conta no P10 e o cobertura.lua desconta a
-      -- sobreposicao, por isso 11 feitas para 12 itens no plano.
+      -- COMPLETO, 12 de 12. O GraphQL esta LISTADO acima e tambem conta no
+      -- P10; o cobertura.lua desduplica. Antes ele era omitido daqui, e o
+      -- projeto aparecia como 11 de 12 -- subestimando a si mesmo, porque o
+      -- `graphql/esquema.graphql` existe neste repositorio.
       --
       -- A tabela de bundle size que o plano promete NAO existe ainda: medir
       -- exige empacotar com minificacao e tree-shaking iguais nos tres, e
@@ -115,10 +123,22 @@ return {
         "R",       -- modelo.R: a formula como objeto de primeira classe
         "Octave",  -- modelo.m: algebra linear como sintaxe (dialeto MATLAB)
         "hansl",   -- modelo.inp: no lugar do Stata, que e pago
+        "Julia",   -- modelo.jl: as DUAS familias, e a descoberta de que tres
+                   -- fatoracoes de equacoes normais erram por uma ordem de
+                   -- grandeza de diferenca ENTRE SI
+        "Python",  -- referencia.py: a referencia com SVD; tambem conta no P10
+        "SQL",     -- modelo.sql: equacoes normais por Cramer, e o achado de
+                   -- que ate o AJUSTE erra 40%; tambem conta no P10
       },
-      -- Python, SQL e Cypher/SPARQL ja contam em outros projetos; aqui o
-      -- cobertura.lua desconta a sobreposicao. Faltam Julia (nao esta no
-      -- apt), Scala/Spark, Mojo, Wolfram e SAS.
+      -- Python e SQL estao LISTADOS, e nao omitidos, seguindo a convencao que
+      -- o P03 usa para o Rust: o cobertura.lua desduplica, e o progresso por
+      -- projeto passa a dizer a verdade.
+      --
+      -- Antes eles eram omitidos "para nao contar duas vezes", e o efeito era
+      -- o P05 aparecer como 5/10 enquanto o README dele dizia 7/10 -- e o
+      -- README estava certo, porque sao implementacoes reais no repositorio.
+      --
+      -- Faltam Scala/Spark, Mojo, Wolfram e SAS.
     },
     P06 = { nome = "gpu-arena",     itens_no_plano = 9,  planejadas = 8,  feitas = {} },
     P07 = { nome = "engine",        itens_no_plano = 7,  planejadas = 6,  feitas = {} },
@@ -190,8 +210,12 @@ return {
         "VB.NET", -- Juros.vb: a ponte que as empresas de fato usaram
         "Object Pascal", -- juros.pas: Currency bate, e o FPC avalia literal real em Single
       },
-      -- O SQL ja conta no P10 e o cobertura.lua desconta a sobreposicao. O C#
-      -- NAO: ele existe so aqui, e o comentario anterior afirmava o contrario.
+      -- O SQL ainda NAO esta feito aqui (e um dos cinco que faltam); quando
+      -- estiver, entra LISTADO, como o Rust do P03 -- o cobertura.lua
+      -- desduplica com o P10.
+      --
+      -- O C# conta: ele existe so aqui, e um comentario antigo afirmava o
+      -- contrario.
       -- Por isso a conta publicada dizia 45 linguagens distintas quando sao
       -- 46 -- achado por auditoria do CONTEXTO.md em 2026-11-16. O README do
       -- P13 sempre disse "3 das 9"; era este arquivo que estava errado.
