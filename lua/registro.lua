@@ -67,6 +67,11 @@ return {
                    -- expectativa REFUTADA: o `=/2` nao faz teste de
                    -- ocorrencia, e `unify_with_occurs_check/2` nao e o
                    -- padrao. O ganho veio do PARSER (DCG), nao da unificacao
+        "Racket",  -- porte do verificador, 23/23, 397 linhas -- a primeira
+                   -- linguagem DINAMICA: a estrutura do algoritmo sobrevive
+                   -- inteira, e o que se perde e a rede. `var` e `app` sao
+                   -- FORMAS DE PADRAO do racket/match, e o sombreamento
+                   -- virou um curinga sem nenhum aviso
       },
     },
 
