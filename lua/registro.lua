@@ -72,6 +72,12 @@ return {
                    -- inteira, e o que se perde e a rede. `var` e `app` sao
                    -- FORMAS DE PADRAO do racket/match, e o sombreamento
                    -- virou um curinga sem nenhum aviso
+        "Common Lisp", -- porte do verificador, 23/23, 415 linhas. A UNICA
+                   -- diferenca de desenho em relacao ao Racket e nao ter
+                   -- casamento de padrao, e isso custa 18 linhas (4,5%) --
+                   -- menos do que eu esperava. O preco e de legibilidade.
+                   -- Em troca: o sistema de condicoes, que nenhuma das
+                   -- outras cinco tem
       },
     },
 
