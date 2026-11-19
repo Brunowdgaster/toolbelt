@@ -63,6 +63,10 @@ return {
         "Haskell", -- compilador completo, Hindley-Milner total
         "OCaml",   -- porte do verificador, 23/23 byte a byte
         "F#",      -- porte do verificador, 23/23, 496 linhas
+        "Prolog",  -- porte do verificador, 23/23, 338 linhas -- e a
+                   -- expectativa REFUTADA: o `=/2` nao faz teste de
+                   -- ocorrencia, e `unify_with_occurs_check/2` nao e o
+                   -- padrao. O ganho veio do PARSER (DCG), nao da unificacao
       },
     },
 
